@@ -24,40 +24,40 @@
 
         #interactive-btn {
             font-family: 'CobayasFont', sans-serif;
-            color: white;
+            color: #F9f4da; /* CAMBIO: Color Crema */
             text-decoration: none;
             font-size: 130px; 
             
-            /* ESTADO INICIAL: Letras juntas (o normales) */
+            /* ESTADO INICIAL */
             letter-spacing: 2px; 
             
-            /* Animación suave para el espaciado */
-            transition: letter-spacing 0.5s ease; 
+            /* Animación suave para el espaciado y el brillo */
+            transition: letter-spacing 0.5s ease, text-shadow 0.3s ease; 
             
             user-select: none;
             text-align: center;
-            /* White-space nowrap asegura que el texto no salte de línea al expandirse */
             white-space: nowrap; 
         }
 
         #interactive-btn:hover {
-            /* ESTADO EXPANDIDO: Aquí decides cuánto se separan */
+            /* ESTADO EXPANDIDO */
             letter-spacing: 20px; 
+            text-shadow: 0 0 15px rgba(249, 244, 218, 0.5); /* CAMBIO: Brillo crema al hacer hover */
         }
+
         /* --- ANIMACIÓN DE ENTRADA SUAVE --- */
         body {
-            /* La magia ocurre aquí: */
             animation: aparecer 0.8s ease-out;
         }
 
         @keyframes aparecer {
             0% {
                 opacity: 0;
-                transform: translateY(10px); /* Empieza un poco más abajo */
+                transform: translateY(10px);
             }
             100% {
                 opacity: 1;
-                transform: translateY(0); /* Termina en su lugar */
+                transform: translateY(0);
             }
         }
     </style>
