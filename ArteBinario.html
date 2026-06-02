@@ -3,15 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Entrelazamiento Binario Sensitivo - Obra Completa</title>
+    <title>Entrelazamiento Binario Sensitivo - Respiración Estructural</title>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
     <style>
         body { margin: 0; overflow: hidden; background-color: #F0EAD6; font-family: 'Courier New', Courier, monospace; }
-        .input_video { display: none; } /* Video oculto, solo sirve de sensor */
+        .input_video { display: none; } 
         
-        /* SISTEMA RETRÁCTIL DEL MENÚ */
         #ui-wrapper { 
             position: absolute; top: 30px; left: 30px; z-index: 10;
             display: flex; align-items: flex-start;
@@ -63,15 +62,15 @@
             
             <div style="margin-top: 20px;">
                 <label style="font-size: 11px; font-weight: bold;">RITMO CARDÍACO (rPPG):</label>
-                <div class="bpm-display"><span id="bpmValue">--</span> BPM</div>
+                <div class="bpm-display"><span id="bpmValue">60</span> BPM</div>
             </div>
 
             <button id="generateBtn" class="btn-accion">Transmutar Impresión</button>
             <div id="cameraStatus" class="status">Calibrando IA Espacial y Biometría...</div>
             
             <p style="font-size: 10px; opacity: 0.8; margin-top: 20px;">
-                * Tu rostro dicta el pulso vital.<br>
-                * Junta los dedos en el aire para atrapar los nodos físicos.
+                * Tu rostro dicta la respiración de la red.<br>
+                * Junta los dedos para atrapar y esculpir.
             </p>
         </div>
         <button id="toggleBtn" title="Ocultar/Mostrar">◀</button>
@@ -85,22 +84,21 @@
         const generateBtn = document.getElementById('generateBtn');
         const cameraStatus = document.getElementById('cameraStatus');
         const bpmValue = document.getElementById('bpmValue');
-        
         const toggleBtn = document.getElementById('toggleBtn');
         const uiWrapper = document.getElementById('ui-wrapper');
 
         let width, height;
         let nodos = [];
-        let tiempo = 0;
         
-        // Variables Hápticas (Cámara y Mouse de respaldo)
+        // Variables Hápticas
         let manoX = -1000; let manoY = -1000;
         let mouseX = -1000; let mouseY = -1000;
         let isPinching = false;
         let nodoAgarrado = null;
 
-        // Variables de Biometría
-        let latidoReal = 75; 
+        // Variables de Biometría Estabilizada
+        let latidoReal = 60; // Inicia en un pulso de reposo
+        let latidoVisual = 60; // Variable suavizada para la pantalla
         const hiddenCanvas = document.createElement('canvas');
         const hiddenCtx = hiddenCanvas.getContext('2d', {willReadFrequently: true});
         let greenSignal = [];
@@ -120,54 +118,37 @@
             toggleBtn.innerHTML = uiWrapper.classList.contains('oculto') ? '▶' : '◀';
         });
 
-        // ==========================================
-        // 1. MOTOR DE IA PARA MANOS (MediaPipe)
-        // ==========================================
-        const hands = new Hands({locateFile: (file) => {
-            return `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`;
-        }});
+        // 1. MOTOR ESPACIAL (MediaPipe)
+        const hands = new Hands({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`});
         hands.setOptions({ maxNumHands: 1, modelComplexity: 1, minDetectionConfidence: 0.6, minTrackingConfidence: 0.6 });
 
         hands.onResults((results) => {
             if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
                 const landmarks = results.multiHandLandmarks[0];
-                const indice = landmarks[8];
-                const pulgar = landmarks[4];
-
-                // Efecto Espejo
-                manoX = (1 - indice.x) * width;
-                manoY = indice.y * height;
-
-                let distDedos = Math.hypot(indice.x - pulgar.x, indice.y - pulgar.y);
+                const indice = landmarks[8]; const pulgar = landmarks[4];
+                manoX = (1 - indice.x) * width; manoY = indice.y * height;
                 
-                if (distDedos < 0.05) { 
+                if (Math.hypot(indice.x - pulgar.x, indice.y - pulgar.y) < 0.05) { 
                     if (!isPinching) {
                         isPinching = true;
-                        let minDist = 80;
-                        nodoAgarrado = null;
+                        let minDist = 80; nodoAgarrado = null;
                         nodos.forEach(n => {
-                            let d = Math.hypot(manoX - n.x, manoY - n.y);
-                            if (d < minDist) { minDist = d; nodoAgarrado = n; }
+                            if (Math.hypot(manoX - n.x, manoY - n.y) < minDist) { minDist = d; nodoAgarrado = n; }
                         });
                     }
                 } else { 
                     isPinching = false;
-                    // Si se suelta el agarre espacial pero no hay agarre táctil
                     if(nodoAgarrado && nodoAgarrado.agarreManual !== true) nodoAgarrado = null;
                 }
             } else {
-                manoX = -1000; manoY = -1000;
-                isPinching = false;
+                manoX = -1000; manoY = -1000; isPinching = false;
             }
         });
 
-        // ==========================================
-        // 2. EXTRACCIÓN DE LATIDO (rPPG)
-        // ==========================================
+        // 2. EXTRACCIÓN DE LATIDO ESTABILIZADA (rPPG)
         function calcularBPM_rPPG() {
             if (videoElement.readyState !== 4) return;
-            hiddenCanvas.width = videoElement.videoWidth;
-            hiddenCanvas.height = videoElement.videoHeight;
+            hiddenCanvas.width = videoElement.videoWidth; hiddenCanvas.height = videoElement.videoHeight;
             hiddenCtx.drawImage(videoElement, 0, 0);
 
             let cx = hiddenCanvas.width / 2; let cy = hiddenCanvas.height / 3;
@@ -175,37 +156,36 @@
             
             let sumG = 0; let totalPixels = frameData.length / 4;
             for(let i = 1; i < frameData.length; i += 4) { sumG += frameData[i]; }
-            let avgG = sumG / totalPixels;
-
+            
             let now = performance.now();
-            greenSignal.push({val: avgG, time: now});
-            if (greenSignal.length > 120) { greenSignal.shift(); }
+            greenSignal.push({val: sumG / totalPixels, time: now});
+            if (greenSignal.length > 150) { greenSignal.shift(); } // Mayor memoria para promedios
 
-            if (greenSignal.length > 30) {
+            if (greenSignal.length > 60) {
                 let mean = greenSignal.reduce((a, b) => a + b.val, 0) / greenSignal.length;
                 let current = greenSignal[greenSignal.length - 1];
                 let previous = greenSignal[greenSignal.length - 2];
 
                 if (previous.val >= mean && current.val < mean) {
                     let timeDiff = current.time - lastPeakTime;
-                    if (timeDiff > 330 && timeDiff < 1300) { 
-                        let instantBPM = Math.round(60000 / timeDiff);
-                        latidoReal = Math.round((latidoReal * 0.7) + (instantBPM * 0.3));
-                        bpmValue.innerText = latidoReal;
+                    if (timeDiff > 400 && timeDiff < 1200) {  // Rango estricto: 50 a 150 BPM
+                        let instantBPM = 60000 / timeDiff;
+                        // Filtro de Inercia: El BPM real cambia muy lentamente para evitar saltos caóticos
+                        latidoReal = (latidoReal * 0.90) + (instantBPM * 0.10); 
                     }
                     lastPeakTime = current.time;
                 }
             }
+            
+            // Actualización visual suave en la UI
+            latidoVisual = (latidoVisual * 0.95) + (latidoReal * 0.05);
+            bpmValue.innerText = Math.round(latidoVisual);
         }
 
-        // ==========================================
-        // 3. INICIALIZACIÓN DUAL DE LA CÁMARA
-        // ==========================================
         const camera = new Camera(videoElement, {
             onFrame: async () => {
                 cameraStatus.innerText = "Sensores Ópticos y Hápticos: ACTIVOS";
                 cameraStatus.style.color = "#5cb85c";
-                // Ejecución Dual: Manos + Corazón
                 await hands.send({image: videoElement}); 
                 calcularBPM_rPPG();
             },
@@ -213,79 +193,59 @@
         });
         camera.start();
 
-        // ==========================================
-        // SISTEMA TÁCTIL Y DE RESPALDO (C-TOUCH)
-        // ==========================================
+        // SISTEMA TÁCTIL (Respaldo)
         function down(e) {
-            mouseX = e.touches ? e.touches[0].clientX : e.clientX;
-            mouseY = e.touches ? e.touches[0].clientY : e.clientY;
-            let minDist = 60;
-            nodoAgarrado = null;
+            mouseX = e.touches ? e.touches[0].clientX : e.clientX; mouseY = e.touches ? e.touches[0].clientY : e.clientY;
+            let minDist = 60; nodoAgarrado = null;
             nodos.forEach(n => {
-                let d = Math.hypot(mouseX - n.x, mouseY - n.y);
-                if (d < minDist) { minDist = d; nodoAgarrado = n; nodoAgarrado.agarreManual = true; }
+                if (Math.hypot(mouseX - n.x, mouseY - n.y) < minDist) { nodoAgarrado = n; nodoAgarrado.agarreManual = true; }
             });
         }
         function up() { if(nodoAgarrado) nodoAgarrado.agarreManual = false; nodoAgarrado = null; }
-        function move(e) { 
-            mouseX = e.touches ? e.touches[0].clientX : e.clientX; 
-            mouseY = e.touches ? e.touches[0].clientY : e.clientY; 
-        }
+        function move(e) { mouseX = e.touches ? e.touches[0].clientX : e.clientX; mouseY = e.touches ? e.touches[0].clientY : e.clientY; }
+        window.addEventListener('mousedown', down); window.addEventListener('mouseup', up); window.addEventListener('mousemove', move);
+        window.addEventListener('touchstart', down, {passive: false}); window.addEventListener('touchend', up); window.addEventListener('touchmove', move, {passive: false});
 
-        window.addEventListener('mousedown', down);
-        window.addEventListener('mouseup', up);
-        window.addEventListener('mousemove', move);
-        window.addEventListener('touchstart', down, {passive: false});
-        window.addEventListener('touchend', up);
-        window.addEventListener('touchmove', move, {passive: false});
-
-        // ==========================================
-        // 4. MOTOR BINARIO (DIBUJO Y FÍSICA)
-        // ==========================================
+        // 3. FÍSICA DENSA Y RESPIRACIÓN
         class Nodo {
             constructor(x, y, tipo) {
                 this.x = x; this.y = y; this.tipo = tipo;
-                this.vx = (Math.random() - 0.5) * 1.5;
-                this.vy = (Math.random() - 0.5) * 1.5;
-                this.fase = Math.random() * Math.PI * 2;
+                this.vx = (Math.random() - 0.5) * 0.5; // Menor velocidad inicial
+                this.vy = (Math.random() - 0.5) * 0.5;
                 this.agarreManual = false;
             }
-
-            actualizar(speedFactor) {
-                this.x += this.vx * speedFactor;
-                this.y += this.vy * speedFactor;
+            actualizar() {
+                this.x += this.vx; this.y += this.vy;
                 if (this.x <= 0 || this.x >= width) this.vx *= -1;
                 if (this.y <= 0 || this.y >= height) this.vy *= -1;
-                this.vx *= 0.98; this.vy *= 0.98; 
+                // FRICCIÓN FUERTE: Simula estar en un líquido denso para dar estabilidad
+                this.vx *= 0.85; this.vy *= 0.85; 
             }
         }
 
         function generar() {
-            ctx.fillStyle = '#F0EAD6';
-            ctx.fillRect(0, 0, width, height);
+            ctx.fillStyle = '#F0EAD6'; ctx.fillRect(0, 0, width, height);
             nodos = [];
             const bin = nameInput.value.split('').map(c => c.charCodeAt(0).toString(2).padStart(8, '0')).join('');
-            for (let i = 0; i < bin.length; i++) {
-                nodos.push(new Nodo(Math.random() * width, Math.random() * height, parseInt(bin[i])));
-            }
+            for (let i = 0; i < bin.length; i++) { nodos.push(new Nodo(Math.random() * width, Math.random() * height, parseInt(bin[i]))); }
         }
 
         function dibujar() {
-            let speedFactor = latidoReal / 75; 
-            tiempo += 0.02 * speedFactor;
+            // EL LATIDO: Un valor de -1 a 1 que sube y baja dependiendo del BPM
+            let tiempoSec = performance.now() / 1000;
+            let ondaLatido = Math.sin(tiempoSec * (latidoVisual / 60) * Math.PI * 2); 
 
-            // Veladura Abstracta
-            ctx.fillStyle = 'rgba(240, 234, 214, 0.015)'; 
+            // Veladura (Rastro de Carbón muy sutil)
+            ctx.fillStyle = 'rgba(240, 234, 214, 0.02)'; 
             ctx.fillRect(0, 0, width, height);
 
             nodos.forEach((a, i) => {
                 if (a === nodoAgarrado) {
-                    // Decide si obedece a la mano en el aire o al toque físico
-                    a.x = a.agarreManual ? mouseX : manoX; 
-                    a.y = a.agarreManual ? mouseY : manoY;
+                    a.x += ((a.agarreManual ? mouseX : manoX) - a.x) * 0.15; 
+                    a.y += ((a.agarreManual ? mouseY : manoY) - a.y) * 0.15;
                     a.vx = 0; a.vy = 0;
                 } else {
-                    a.actualizar(speedFactor);
+                    a.actualizar();
                 }
 
                 for (let j = i + 1; j < nodos.length; j++) {
@@ -293,36 +253,42 @@
                     let dx = b.x - a.x, dy = b.y - a.y;
                     let d = Math.hypot(dx, dy);
 
-                    if (d < 150) {
+                    if (d < 180) {
                         if (a.tipo === 1 && b.tipo === 1) {
-                            let distIdeal = 80;
-                            let tension = (d - distIdeal) * 0.001;
+                            // RESPIRACIÓN ESTRUCTURAL: La distancia ideal de la geometría se expande con el latido
+                            let distIdeal = 80 + (ondaLatido * 15); 
+                            
+                            // Tensión más suave (0.0005) para movimientos elegantes
+                            let tension = (d - distIdeal) * 0.0005;
                             if (a !== nodoAgarrado) { a.vx += dx * tension; a.vy += dy * tension; }
                             if (b !== nodoAgarrado) { b.vx -= dx * tension; b.vy -= dy * tension; }
 
                             ctx.beginPath();
                             ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y);
-                            ctx.strokeStyle = `rgba(34, 34, 34, ${0.1 * (1 - d/150)})`;
+                            
+                            // Las líneas de tensión brillan levemente con el latido
+                            let opacidadLatido = 0.1 + (ondaLatido * 0.05);
+                            ctx.strokeStyle = `rgba(34, 34, 34, ${Math.max(0, opacidadLatido * (1 - d/180))})`;
                             ctx.lineWidth = 0.5;
                             ctx.stroke();
-                        } else if (a.tipo === 0 && b.tipo === 0 && d < 30) {
-                            a.vx -= dx * 0.05; a.vy -= dy * 0.05;
+                        } else if (a.tipo === 0 && b.tipo === 0 && d < 40) {
+                            a.vx -= dx * 0.01; a.vy -= dy * 0.01;
                         }
                     }
                 }
 
                 ctx.beginPath();
-                let radio = a.tipo === 1 ? 2 + Math.sin(tiempo + a.fase) : 1;
-                ctx.arc(a.x, a.y, radio, 0, Math.PI * 2);
-                ctx.fillStyle = 'rgba(34, 34, 34, 0.4)';
+                // El tamaño del nodo reacciona al corazón
+                let radio = a.tipo === 1 ? 2.5 + (ondaLatido * 1.5) : 1;
+                ctx.arc(a.x, a.y, Math.max(0.5, radio), 0, Math.PI * 2);
+                ctx.fillStyle = a.tipo === 1 ? '#222222' : 'rgba(34, 34, 34, 0.4)';
                 ctx.fill();
             });
 
-            // Dibujar cursor de la IA espacial (Manos en el aire)
             if (manoX > 0) {
                 ctx.beginPath();
                 ctx.arc(manoX, manoY, isPinching ? 10 : 5, 0, Math.PI * 2);
-                ctx.strokeStyle = isPinching ? '#222222' : 'rgba(34, 34, 34, 0.5)';
+                ctx.strokeStyle = isPinching ? '#222222' : 'rgba(34, 34, 34, 0.3)';
                 ctx.lineWidth = 2;
                 ctx.stroke();
             }
