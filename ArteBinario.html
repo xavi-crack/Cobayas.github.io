@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Obra: Entrelazamiento Binario Sensitivo</title>
+    <style>
+        /* Estética Carbón y Crema */
+        body { margin: 0; overflow: hidden; background-color: #F0EAD6; color: #222222; font-family: 'Courier New', Courier, monospace; user-select: none; }
+        
+        #ui-panel { 
+            position: absolute; top: 30px; left: 30px; width: 280px;
+            background: rgba(240, 234, 214, 0.9); padding: 25px; 
+            border: 1px solid #222222; border-radius: 2px; z-index: 10;
+            box-shadow: 5px 5px 0px #222222;
+        }
+        h3 { margin-top: 0; font-size: 14px; text-transform: uppercase; letter-spacing: 2px; border-bottom: 1px solid #222; padding-bottom: 10px; }
+        label { font-size: 11px; display: block; margin-top: 15px; font-weight: bold; }
+        input[type="text"], input[type="range"] { 
+            width: 100%; background: transparent; border: none; border-bottom: 1px solid #222; 
+            color: #222; padding: 5px 0; font-family: inherit; margin-top: 5px;
+        }
+        button { 
+            width: 100%; padding: 12px; margin-top: 25px; 
+            background: #222222; color: #F0EAD6; border: none; 
+            cursor: pointer; text-transform: uppercase; font-size: 12px; letter-spacing: 2px;
+        }
+        button:hover { opacity: 0.8; }
+        .instrucciones { font-size: 10px; margin-top: 20px; opacity: 0.8; line-height: 1.6; font-style: italic; }
+        canvas { display: block; cursor: crosshair; }
+    </style>
+</head>
+<body>
+
+    <div id="ui-panel">
+        <h3>Entrelazamiento Binario</h3>
+        
+        <label>ID DEL ESPECTADOR (NOMBRE):</label>
+        <input type="text" id="nameInput" value="Mondrian" placeholder="Escribe aquí...">
+
+        <label>PULSO BIOMÉTRICO: <span id="bpmValue">75</span> BPM</label>
+        <input type="range" id="bpmSlider" min="40" max="160" value="75">
+
+        <button id="generateBtn">Iniciar Transmutación</button>
+        
+        <div class="instrucciones">
+            La obra es el rastro del ser sobre el vacío.<br><br>
+            Toca un solo nodo para deformar la retícula. El rastro persistente forma la pieza final.
+        </div>
+    </div>
+
+    <canvas id="lienzo"></canvas>
+
+    <script>
+        const canvas = document.getElementById('lienzo');
+        const ctx = canvas.getContext('2d');
+        const bpmSlider = document.getElementById('bpmSlider');
+        const bpmValue = document.getElementById('bpmValue');
+        const nameInput = document.getElementById('nameInput');
+        const generateBtn = document.getElementById('generateBtn');
+
+        let width, height;
+        let nodos = [];
+        let mouse = { x: -1000, y: -1000 };
+        let nodoAgarrado = null; 
+        let tiempo = 0;
+
+        function resize() {
+            width = canvas.width = window.innerWidth;
+            height = canvas.height = window.innerHeight;
+            // Al redimensionar, perdemos el rastro. Pintamos el fondo inicial.
+            ctx.fillStyle = '#F0EAD6';
+            ctx.fillRect(0, 0, width, height);
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        bpmSlider.addEventListener('input', (e) => { bpmValue.innerText = e.target.value; });
+
+        // --- INTERACCIÓN SINGULAR ---
+        function getCoords(e) {
+            const x = e.touches ? e.touches[0].clientX : e.clientX;
+            const y = e.touches ? e.touches[0].clientY : e.clientY;
+            return { x, y };
+        }
+
+        function down(e) {
+            const coords = getCoords(e);
+            let minDist = 40;
+            nodoAgarrado = null;
+            nodos.forEach(n => {
+                let d = Math.hypot(coords.x - n.x, coords.y - n.y);
+                if (d < minDist) { minDist = d; nodoAgarrado = n; }
+            });
+        }
+
+        function up() { nodoAgarrado = null; }
+        function move(e) { 
+            const coords = getCoords(e);
+            mouse.x = coords.x; mouse.y = coords.y; 
+        }
+
+        window.addEventListener('mousedown', down);
+        window.addEventListener('mouseup', up);
+        window.addEventListener('mousemove', move);
+        window.addEventListener('touchstart', down, {passive: false});
+        window.addEventListener('touchend', up);
+        window.addEventListener('touchmove', move, {passive: false});
+
+        class Nodo {
+            constructor(x, y, tipo) {
+                this.x = x; this.y = y; this.tipo = tipo;
+                this.vx = (Math.random() - 0.5) * 1.5;
+                this.vy = (Math.random() - 0.5) * 1.5;
+                this.fase = Math.random() * Math.PI * 2;
+            }
+
+            actualizar(speedFactor) {
+                this.x += this.vx * speedFactor;
+                this.y += this.vy * speedFactor;
+                if (this.x <= 0 || this.x >= width) this.vx *= -1;
+                if (this.y <= 0 || this.y >= height) this.vy *= -1;
+                this.vx *= 0.98; this.vy *= 0.98; // Fricción muy suave para flujo pensive
+            }
+        }
+
+        function generar() {
+            // Limpieza total para nueva obra
+            ctx.fillStyle = '#F0EAD6';
+            ctx.fillRect(0, 0, width, height);
+            nodos = [];
+            const bin = nameInput.value.split('').map(c => c.charCodeAt(0).toString(2).padStart(8, '0')).join('');
+            for (let i = 0; i < bin.length; i++) {
+                nodos.push(new Nodo(Math.random() * width, Math.random() * height, parseInt(bin[i])));
+            }
+        }
+
+        function dibujar() {
+            let bpm = parseInt(bpmSlider.value);
+            let speedFactor = bpm / 75; // 75 BPM es el ritmo normal
+            tiempo += 0.02 * speedFactor;
+
+            // VELADURA: El papel se raya. No borramos el fondo, solo aplicamos un tinte casi invisible.
+            ctx.fillStyle = 'rgba(240, 234, 214, 0.015)'; 
+            ctx.fillRect(0, 0, width, height);
+
+            nodos.forEach((a, i) => {
+                if (a === nodoAgarrado) {
+                    a.x = mouse.x; a.y = mouse.y;
+                    a.vx = 0; a.vy = 0;
+                } else {
+                    a.actualizar(speedFactor);
+                }
+
+                for (let j = i + 1; j < nodos.length; j++) {
+                    let b = nodos[j];
+                    let dx = b.x - a.x, dy = b.y - a.y;
+                    let d = Math.hypot(dx, dy);
+
+                    if (d < 150) {
+                        if (a.tipo === 1 && b.tipo === 1) {
+                            // Tensión de Resorte Yang
+                            let distIdeal = 80;
+                            let tension = (d - distIdeal) * 0.001;
+                            if (a !== nodoAgarrado) { a.vx += dx * tension; a.vy += dy * tension; }
+                            if (b !== nodoAgarrado) { b.vx -= dx * tension; b.vy -= dy * tension; }
+
+                            // DIBUJAR RASTRO (RAYADO)
+                            ctx.beginPath();
+                            ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y);
+                            ctx.strokeStyle = `rgba(34, 34, 34, ${0.1 * (1 - d/150)})`;
+                            ctx.lineWidth = 0.5;
+                            ctx.stroke();
+                        } else if (a.tipo === 0 && b.tipo === 0 && d < 30) {
+                            // Pequeño rechazo Yin
+                            a.vx -= dx * 0.05; a.vy -= dy * 0.05;
+                        }
+                    }
+                }
+
+                // Dibujar el punto como una marca de carbón
+                ctx.beginPath();
+                let radio = a.tipo === 1 ? 2 + Math.sin(tiempo + a.fase) : 1;
+                ctx.arc(a.x, a.y, radio, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(34, 34, 34, 0.4)';
+                ctx.fill();
+            });
+
+            requestAnimationFrame(dibujar);
+        }
+
+        generateBtn.addEventListener('click', generar);
+        generar();
+        dibujar();
+    </script>
+</body>
+</html>
+
+¿Sientes que el ritmo ahora es más contemplativo y la marca que deja sobre el papel le da esa cualidad de "obra terminada"?_
