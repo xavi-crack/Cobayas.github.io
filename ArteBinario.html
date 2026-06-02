@@ -3,110 +3,191 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Obra: Entrelazamiento Binario Sensitivo</title>
+    <title>Entrelazamiento Binario Sensitivo - Visión Artificial</title>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
     <style>
-        /* Estética Carbón y Crema */
-        body { margin: 0; overflow: hidden; background-color: #F0EAD6; color: #222222; font-family: 'Courier New', Courier, monospace; user-select: none; }
+        body { margin: 0; overflow: hidden; background-color: #F0EAD6; font-family: 'Courier New', Courier, monospace; }
         
+        .input_video { display: none; }
+        
+        /* --- SISTEMA RETRÁCTIL DEL PANEL --- */
+        #ui-wrapper { 
+            position: absolute; 
+            top: 30px; 
+            left: 30px; 
+            z-index: 10;
+            display: flex;
+            align-items: flex-start;
+            /* Animación fluida para entrar y salir */
+            transition: transform 0.4s cubic-bezier(0.25, 1, 0.5, 1);
+        }
+
+        /* Cuando tiene esta clase, el panel se esconde hacia la izquierda */
+        #ui-wrapper.oculto {
+            transform: translateX(calc(-100% - 30px));
+        }
+
         #ui-panel { 
-            position: absolute; top: 30px; left: 30px; width: 280px;
-            background: rgba(240, 234, 214, 0.9); padding: 25px; 
-            border: 1px solid #222222; border-radius: 2px; z-index: 10;
-            box-shadow: 5px 5px 0px #222222;
+            width: 300px;
+            background: rgba(240, 234, 214, 0.9); 
+            padding: 25px; 
+            border: 1px solid #222222; 
+            border-radius: 2px 0 0 2px;
+            box-sizing: border-box;
         }
-        h3 { margin-top: 0; font-size: 14px; text-transform: uppercase; letter-spacing: 2px; border-bottom: 1px solid #222; padding-bottom: 10px; }
-        label { font-size: 11px; display: block; margin-top: 15px; font-weight: bold; }
-        input[type="text"], input[type="range"] { 
+
+        /* El botón pestaña que queda visible */
+        #toggleBtn {
+            background: #222222;
+            color: #F0EAD6;
+            border: 1px solid #222222;
+            border-left: none; /* Se fusiona visualmente con el panel */
+            padding: 15px 10px;
+            cursor: pointer;
+            border-radius: 0 4px 4px 0;
+            font-size: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        #toggleBtn:hover { opacity: 0.8; }
+
+        /* Estilos internos del menú */
+        h3 { font-size: 14px; text-transform: uppercase; border-bottom: 1px solid #222; padding-bottom: 10px; margin-top: 0;}
+        input[type="text"] { 
             width: 100%; background: transparent; border: none; border-bottom: 1px solid #222; 
-            color: #222; padding: 5px 0; font-family: inherit; margin-top: 5px;
+            color: #222; padding: 5px 0; margin-top: 5px; font-family: inherit; font-size: 16px; box-sizing: border-box;
         }
-        button { 
+        .btn-accion { 
             width: 100%; padding: 12px; margin-top: 25px; 
             background: #222222; color: #F0EAD6; border: none; 
-            cursor: pointer; text-transform: uppercase; font-size: 12px; letter-spacing: 2px;
+            cursor: pointer; text-transform: uppercase; font-size: 12px;
         }
-        button:hover { opacity: 0.8; }
-        .instrucciones { font-size: 10px; margin-top: 20px; opacity: 0.8; line-height: 1.6; font-style: italic; }
-        canvas { display: block; cursor: crosshair; }
+        .status { margin-top: 15px; font-size: 11px; font-weight: bold; color: #d9534f; }
+        canvas { display: block; position: absolute; top: 0; left: 0; z-index: 1; }
     </style>
 </head>
 <body>
 
-    <div id="ui-panel">
-        <h3>Entrelazamiento Binario</h3>
-        
-        <label>ID DEL ESPECTADOR (NOMBRE):</label>
-        <input type="text" id="nameInput" value="Mondrian" placeholder="Escribe aquí...">
-
-        <label>PULSO BIOMÉTRICO: <span id="bpmValue">75</span> BPM</label>
-        <input type="range" id="bpmSlider" min="40" max="160" value="75">
-
-        <button id="generateBtn">Iniciar Transmutación</button>
-        
-        <div class="instrucciones">
-            La obra es el rastro del ser sobre el vacío.<br><br>
-            Toca un solo nodo para deformar la retícula. El rastro persistente forma la pieza final.
-        </div>
-    </div>
-
+    <video class="input_video"></video>
     <canvas id="lienzo"></canvas>
 
+    <div id="ui-wrapper">
+        <div id="ui-panel">
+            <h3>Entrelazamiento Binario</h3>
+            <label style="font-size: 11px; font-weight: bold;">ID DEL ESPECTADOR:</label>
+            <input type="text" id="nameInput" value="Mondrian">
+            <button id="generateBtn" class="btn-accion">Transmutar Impresión</button>
+            <div id="cameraStatus" class="status">Iniciando cámara y motor de IA...</div>
+            <p style="font-size: 10px; opacity: 0.8; margin-top: 20px;">
+                * Mueve tu mano frente a la cámara.<br>
+                * Junta el pulgar y el índice para "agarrar" un nodo.<br>
+                * Suelta para dejarlo en su nueva posición.
+            </p>
+        </div>
+        <button id="toggleBtn" title="Ocultar/Mostrar Menú">◀</button>
+    </div>
+
     <script>
+        const videoElement = document.getElementsByClassName('input_video')[0];
         const canvas = document.getElementById('lienzo');
         const ctx = canvas.getContext('2d');
-        const bpmSlider = document.getElementById('bpmSlider');
-        const bpmValue = document.getElementById('bpmValue');
         const nameInput = document.getElementById('nameInput');
         const generateBtn = document.getElementById('generateBtn');
+        const cameraStatus = document.getElementById('cameraStatus');
+        
+        // Variables UI
+        const toggleBtn = document.getElementById('toggleBtn');
+        const uiWrapper = document.getElementById('ui-wrapper');
 
         let width, height;
         let nodos = [];
-        let mouse = { x: -1000, y: -1000 };
-        let nodoAgarrado = null; 
         let tiempo = 0;
+        let simuladorBPM = 75; 
+
+        let manoX = -1000;
+        let manoY = -1000;
+        let isPinching = false;
+        let nodoAgarrado = null;
 
         function resize() {
             width = canvas.width = window.innerWidth;
             height = canvas.height = window.innerHeight;
-            // Al redimensionar, perdemos el rastro. Pintamos el fondo inicial.
             ctx.fillStyle = '#F0EAD6';
             ctx.fillRect(0, 0, width, height);
         }
         window.addEventListener('resize', resize);
         resize();
 
-        bpmSlider.addEventListener('input', (e) => { bpmValue.innerText = e.target.value; });
+        // Lógica del botón retráctil
+        toggleBtn.addEventListener('click', () => {
+            uiWrapper.classList.toggle('oculto');
+            if (uiWrapper.classList.contains('oculto')) {
+                toggleBtn.innerHTML = '▶'; // Flecha para desplegar
+            } else {
+                toggleBtn.innerHTML = '◀'; // Flecha para ocultar
+            }
+        });
 
-        // --- INTERACCIÓN SINGULAR ---
-        function getCoords(e) {
-            const x = e.touches ? e.touches[0].clientX : e.clientX;
-            const y = e.touches ? e.touches[0].clientY : e.clientY;
-            return { x, y };
-        }
+        // ==========================================
+        // 1. MOTOR DE INTELIGENCIA ARTIFICIAL
+        // ==========================================
+        const hands = new Hands({locateFile: (file) => {
+            return `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`;
+        }});
+        
+        hands.setOptions({
+            maxNumHands: 1,
+            modelComplexity: 1,
+            minDetectionConfidence: 0.6,
+            minTrackingConfidence: 0.6
+        });
 
-        function down(e) {
-            const coords = getCoords(e);
-            let minDist = 40;
-            nodoAgarrado = null;
-            nodos.forEach(n => {
-                let d = Math.hypot(coords.x - n.x, coords.y - n.y);
-                if (d < minDist) { minDist = d; nodoAgarrado = n; }
-            });
-        }
+        hands.onResults((results) => {
+            cameraStatus.innerText = "Cámara Activa - Leyendo Cuerpo";
+            cameraStatus.style.color = "#5cb85c";
 
-        function up() { nodoAgarrado = null; }
-        function move(e) { 
-            const coords = getCoords(e);
-            mouse.x = coords.x; mouse.y = coords.y; 
-        }
+            if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+                const landmarks = results.multiHandLandmarks[0];
+                const indice = landmarks[8];
+                const pulgar = landmarks[4];
 
-        window.addEventListener('mousedown', down);
-        window.addEventListener('mouseup', up);
-        window.addEventListener('mousemove', move);
-        window.addEventListener('touchstart', down, {passive: false});
-        window.addEventListener('touchend', up);
-        window.addEventListener('touchmove', move, {passive: false});
+                manoX = (1 - indice.x) * width;
+                manoY = indice.y * height;
 
+                let distDedos = Math.hypot(indice.x - pulgar.x, indice.y - pulgar.y);
+                
+                if (distDedos < 0.05) { 
+                    if (!isPinching) {
+                        isPinching = true;
+                        intentarAgarrarNodo(manoX, manoY);
+                    }
+                } else { 
+                    isPinching = false;
+                    nodoAgarrado = null;
+                }
+            } else {
+                manoX = -1000; manoY = -1000;
+                isPinching = false;
+                nodoAgarrado = null;
+            }
+        });
+
+        const camera = new Camera(videoElement, {
+            onFrame: async () => {
+                await hands.send({image: videoElement});
+            },
+            width: 640,
+            height: 480
+        });
+        camera.start();
+
+        // ==========================================
+        // 2. MOTOR FÍSICO Y ARTE BINARIO
+        // ==========================================
         class Nodo {
             constructor(x, y, tipo) {
                 this.x = x; this.y = y; this.tipo = tipo;
@@ -120,12 +201,20 @@
                 this.y += this.vy * speedFactor;
                 if (this.x <= 0 || this.x >= width) this.vx *= -1;
                 if (this.y <= 0 || this.y >= height) this.vy *= -1;
-                this.vx *= 0.98; this.vy *= 0.98; // Fricción muy suave para flujo pensive
+                this.vx *= 0.98; this.vy *= 0.98; 
             }
         }
 
+        function intentarAgarrarNodo(x, y) {
+            let minDist = 80; 
+            nodoAgarrado = null;
+            nodos.forEach(n => {
+                let d = Math.hypot(x - n.x, y - n.y);
+                if (d < minDist) { minDist = d; nodoAgarrado = n; }
+            });
+        }
+
         function generar() {
-            // Limpieza total para nueva obra
             ctx.fillStyle = '#F0EAD6';
             ctx.fillRect(0, 0, width, height);
             nodos = [];
@@ -136,17 +225,16 @@
         }
 
         function dibujar() {
-            let bpm = parseInt(bpmSlider.value);
-            let speedFactor = bpm / 75; // 75 BPM es el ritmo normal
+            let speedFactor = simuladorBPM / 75; 
             tiempo += 0.02 * speedFactor;
 
-            // VELADURA: El papel se raya. No borramos el fondo, solo aplicamos un tinte casi invisible.
             ctx.fillStyle = 'rgba(240, 234, 214, 0.015)'; 
             ctx.fillRect(0, 0, width, height);
 
             nodos.forEach((a, i) => {
                 if (a === nodoAgarrado) {
-                    a.x = mouse.x; a.y = mouse.y;
+                    a.x += (manoX - a.x) * 0.2; 
+                    a.y += (manoY - a.y) * 0.2;
                     a.vx = 0; a.vy = 0;
                 } else {
                     a.actualizar(speedFactor);
@@ -159,32 +247,36 @@
 
                     if (d < 150) {
                         if (a.tipo === 1 && b.tipo === 1) {
-                            // Tensión de Resorte Yang
                             let distIdeal = 80;
                             let tension = (d - distIdeal) * 0.001;
                             if (a !== nodoAgarrado) { a.vx += dx * tension; a.vy += dy * tension; }
                             if (b !== nodoAgarrado) { b.vx -= dx * tension; b.vy -= dy * tension; }
 
-                            // DIBUJAR RASTRO (RAYADO)
                             ctx.beginPath();
                             ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y);
                             ctx.strokeStyle = `rgba(34, 34, 34, ${0.1 * (1 - d/150)})`;
                             ctx.lineWidth = 0.5;
                             ctx.stroke();
                         } else if (a.tipo === 0 && b.tipo === 0 && d < 30) {
-                            // Pequeño rechazo Yin
                             a.vx -= dx * 0.05; a.vy -= dy * 0.05;
                         }
                     }
                 }
 
-                // Dibujar el punto como una marca de carbón
                 ctx.beginPath();
                 let radio = a.tipo === 1 ? 2 + Math.sin(tiempo + a.fase) : 1;
                 ctx.arc(a.x, a.y, radio, 0, Math.PI * 2);
                 ctx.fillStyle = 'rgba(34, 34, 34, 0.4)';
                 ctx.fill();
             });
+
+            if (manoX > 0) {
+                ctx.beginPath();
+                ctx.arc(manoX, manoY, isPinching ? 8 : 4, 0, Math.PI * 2);
+                ctx.strokeStyle = isPinching ? '#d9534f' : '#222222';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+            }
 
             requestAnimationFrame(dibujar);
         }
@@ -195,5 +287,3 @@
     </script>
 </body>
 </html>
-
-¿Sientes que el ritmo ahora es más contemplativo y la marca que deja sobre el papel le da esa cualidad de "obra terminada"?_
