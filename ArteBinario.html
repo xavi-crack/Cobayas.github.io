@@ -3,31 +3,29 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Entrelazamiento Binario Sensitivo - Visión Artificial</title>
+    <title>Entrelazamiento Binario Sensitivo - Biometría Óptica</title>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
     <style>
         body { margin: 0; overflow: hidden; background-color: #F0EAD6; font-family: 'Courier New', Courier, monospace; }
         
         .input_video { display: none; }
         
-        /* --- SISTEMA RETRÁCTIL DEL PANEL --- */
+        /* --- SISTEMA RETRÁCTIL CORREGIDO --- */
         #ui-wrapper { 
             position: absolute; 
             top: 30px; 
-            left: 30px; 
+            left: 30px; /* Posición inicial */
             z-index: 10;
             display: flex;
             align-items: flex-start;
-            /* Animación fluida para entrar y salir */
-            transition: transform 0.4s cubic-bezier(0.25, 1, 0.5, 1);
+            transition: left 0.5s cubic-bezier(0.25, 1, 0.5, 1);
         }
 
-        /* Cuando tiene esta clase, el panel se esconde hacia la izquierda */
+        /* Oculta exactamente los 300px del panel, dejando el botón visible */
         #ui-wrapper.oculto {
-            transform: translateX(calc(-100% - 30px));
+            left: -300px;
         }
 
         #ui-panel { 
@@ -37,25 +35,25 @@
             border: 1px solid #222222; 
             border-radius: 2px 0 0 2px;
             box-sizing: border-box;
+            box-shadow: 2px 2px 10px rgba(0,0,0,0.1);
         }
 
-        /* El botón pestaña que queda visible */
         #toggleBtn {
+            width: 40px;
+            height: 50px;
             background: #222222;
             color: #F0EAD6;
             border: 1px solid #222222;
-            border-left: none; /* Se fusiona visualmente con el panel */
-            padding: 15px 10px;
             cursor: pointer;
             border-radius: 0 4px 4px 0;
             font-size: 16px;
             display: flex;
             align-items: center;
             justify-content: center;
+            box-shadow: 2px 2px 10px rgba(0,0,0,0.1);
         }
         #toggleBtn:hover { opacity: 0.8; }
 
-        /* Estilos internos del menú */
         h3 { font-size: 14px; text-transform: uppercase; border-bottom: 1px solid #222; padding-bottom: 10px; margin-top: 0;}
         input[type="text"] { 
             width: 100%; background: transparent; border: none; border-bottom: 1px solid #222; 
@@ -64,31 +62,41 @@
         .btn-accion { 
             width: 100%; padding: 12px; margin-top: 25px; 
             background: #222222; color: #F0EAD6; border: none; 
-            cursor: pointer; text-transform: uppercase; font-size: 12px;
+            cursor: pointer; text-transform: uppercase; font-size: 12px; font-weight: bold;
         }
-        .status { margin-top: 15px; font-size: 11px; font-weight: bold; color: #d9534f; }
-        canvas { display: block; position: absolute; top: 0; left: 0; z-index: 1; }
+        .status { margin-top: 15px; font-size: 11px; font-weight: bold; color: #222; }
+        .bpm-display { font-size: 24px; font-weight: bold; margin-top: 10px; color: #d9534f; }
+        
+        canvas { display: block; position: absolute; top: 0; left: 0; z-index: 1; cursor: crosshair; }
     </style>
 </head>
 <body>
 
-    <video class="input_video"></video>
+    <video class="input_video" autoplay playsinline></video>
     <canvas id="lienzo"></canvas>
 
     <div id="ui-wrapper">
         <div id="ui-panel">
             <h3>Entrelazamiento Binario</h3>
+            
             <label style="font-size: 11px; font-weight: bold;">ID DEL ESPECTADOR:</label>
             <input type="text" id="nameInput" value="Mondrian">
+            
+            <div style="margin-top: 20px;">
+                <label style="font-size: 11px; font-weight: bold;">RITMO CARDÍACO REAL (rPPG):</label>
+                <div class="bpm-display"><span id="bpmValue">--</span> BPM</div>
+            </div>
+
             <button id="generateBtn" class="btn-accion">Transmutar Impresión</button>
-            <div id="cameraStatus" class="status">Iniciando cámara y motor de IA...</div>
+            <div id="cameraStatus" class="status">Calibrando Sensores Ópticos...</div>
+            
             <p style="font-size: 10px; opacity: 0.8; margin-top: 20px;">
-                * Mueve tu mano frente a la cámara.<br>
-                * Junta el pulgar y el índice para "agarrar" un nodo.<br>
-                * Suelta para dejarlo en su nueva posición.
+                * Mantén tu rostro en el centro e iluminado.<br>
+                * Usa el cursor o la pantalla táctil para alterar la geometría.<br>
+                * El rastro dibuja la emoción pura.
             </p>
         </div>
-        <button id="toggleBtn" title="Ocultar/Mostrar Menú">◀</button>
+        <button id="toggleBtn" title="Ocultar/Mostrar">◀</button>
     </div>
 
     <script>
@@ -98,20 +106,25 @@
         const nameInput = document.getElementById('nameInput');
         const generateBtn = document.getElementById('generateBtn');
         const cameraStatus = document.getElementById('cameraStatus');
+        const bpmValue = document.getElementById('bpmValue');
         
-        // Variables UI
         const toggleBtn = document.getElementById('toggleBtn');
         const uiWrapper = document.getElementById('ui-wrapper');
 
         let width, height;
         let nodos = [];
         let tiempo = 0;
-        let simuladorBPM = 75; 
-
-        let manoX = -1000;
-        let manoY = -1000;
-        let isPinching = false;
+        
+        // Variables Hápticas
+        let mouse = { x: -1000, y: -1000 };
         let nodoAgarrado = null;
+
+        // Variables de Biometría (rPPG)
+        let latidoReal = 75; 
+        const hiddenCanvas = document.createElement('canvas');
+        const hiddenCtx = hiddenCanvas.getContext('2d', {willReadFrequently: true});
+        let greenSignal = [];
+        let lastPeakTime = 0;
 
         function resize() {
             width = canvas.width = window.innerWidth;
@@ -122,63 +135,90 @@
         window.addEventListener('resize', resize);
         resize();
 
-        // Lógica del botón retráctil
         toggleBtn.addEventListener('click', () => {
             uiWrapper.classList.toggle('oculto');
-            if (uiWrapper.classList.contains('oculto')) {
-                toggleBtn.innerHTML = '▶'; // Flecha para desplegar
-            } else {
-                toggleBtn.innerHTML = '◀'; // Flecha para ocultar
-            }
+            toggleBtn.innerHTML = uiWrapper.classList.contains('oculto') ? '▶' : '◀';
         });
 
+        // Eventos táctiles y de mouse
+        function down(e) {
+            const x = e.touches ? e.touches[0].clientX : e.clientX;
+            const y = e.touches ? e.touches[0].clientY : e.clientY;
+            let minDist = 40;
+            nodoAgarrado = null;
+            nodos.forEach(n => {
+                if (Math.hypot(x - n.x, y - n.y) < minDist) { nodoAgarrado = n; }
+            });
+        }
+        function up() { nodoAgarrado = null; }
+        function move(e) { 
+            mouse.x = e.touches ? e.touches[0].clientX : e.clientX; 
+            mouse.y = e.touches ? e.touches[0].clientY : e.clientY; 
+        }
+
+        window.addEventListener('mousedown', down);
+        window.addEventListener('mouseup', up);
+        window.addEventListener('mousemove', move);
+        window.addEventListener('touchstart', down, {passive: false});
+        window.addEventListener('touchend', up);
+        window.addEventListener('touchmove', move, {passive: false});
+
         // ==========================================
-        // 1. MOTOR DE INTELIGENCIA ARTIFICIAL
+        // EXTRACCIÓN DE LATIDO (rPPG ALGORITHM)
         // ==========================================
-        const hands = new Hands({locateFile: (file) => {
-            return `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`;
-        }});
-        
-        hands.setOptions({
-            maxNumHands: 1,
-            modelComplexity: 1,
-            minDetectionConfidence: 0.6,
-            minTrackingConfidence: 0.6
-        });
+        function calcularBPM_rPPG() {
+            if (videoElement.readyState !== 4) return;
 
-        hands.onResults((results) => {
-            cameraStatus.innerText = "Cámara Activa - Leyendo Cuerpo";
-            cameraStatus.style.color = "#5cb85c";
+            hiddenCanvas.width = videoElement.videoWidth;
+            hiddenCanvas.height = videoElement.videoHeight;
+            hiddenCtx.drawImage(videoElement, 0, 0);
 
-            if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
-                const landmarks = results.multiHandLandmarks[0];
-                const indice = landmarks[8];
-                const pulgar = landmarks[4];
+            // Escanear una caja de 50x50 píxeles en el centro del video (la frente)
+            let cx = hiddenCanvas.width / 2;
+            let cy = hiddenCanvas.height / 3;
+            let frameData = hiddenCtx.getImageData(cx - 25, cy - 25, 50, 50).data;
+            
+            // Extraer el promedio del canal Verde (G)
+            let sumG = 0;
+            let totalPixels = frameData.length / 4;
+            for(let i = 1; i < frameData.length; i += 4) { sumG += frameData[i]; }
+            let avgG = sumG / totalPixels;
 
-                manoX = (1 - indice.x) * width;
-                manoY = indice.y * height;
+            let now = performance.now();
+            greenSignal.push({val: avgG, time: now});
 
-                let distDedos = Math.hypot(indice.x - pulgar.x, indice.y - pulgar.y);
-                
-                if (distDedos < 0.05) { 
-                    if (!isPinching) {
-                        isPinching = true;
-                        intentarAgarrarNodo(manoX, manoY);
+            // Mantener solo los últimos 4 segundos de memoria de luz (aprox 120 frames)
+            if (greenSignal.length > 120) { greenSignal.shift(); }
+
+            // Lógica simple de detección de picos (Latidos)
+            if (greenSignal.length > 30) {
+                let sum = 0;
+                for (let s of greenSignal) sum += s.val;
+                let mean = sum / greenSignal.length;
+
+                // Si el valor actual cae por debajo del promedio (la sangre absorbe luz verde)
+                let current = greenSignal[greenSignal.length - 1];
+                let previous = greenSignal[greenSignal.length - 2];
+
+                if (previous.val >= mean && current.val < mean) {
+                    let timeDiff = current.time - lastPeakTime;
+                    // Filtramos latidos irreales (limite entre 45 y 180 BPM)
+                    if (timeDiff > 330 && timeDiff < 1300) { 
+                        let instantBPM = Math.round(60000 / timeDiff);
+                        // Suavizamos el cambio de BPM
+                        latidoReal = Math.round((latidoReal * 0.7) + (instantBPM * 0.3));
+                        bpmValue.innerText = latidoReal;
                     }
-                } else { 
-                    isPinching = false;
-                    nodoAgarrado = null;
+                    lastPeakTime = current.time;
                 }
-            } else {
-                manoX = -1000; manoY = -1000;
-                isPinching = false;
-                nodoAgarrado = null;
             }
-        });
+        }
 
         const camera = new Camera(videoElement, {
             onFrame: async () => {
-                await hands.send({image: videoElement});
+                cameraStatus.innerText = "Conexión Óptica Establecida";
+                cameraStatus.style.color = "#5cb85c";
+                calcularBPM_rPPG();
             },
             width: 640,
             height: 480
@@ -186,7 +226,7 @@
         camera.start();
 
         // ==========================================
-        // 2. MOTOR FÍSICO Y ARTE BINARIO
+        // LA FÍSICA BINARIA
         // ==========================================
         class Nodo {
             constructor(x, y, tipo) {
@@ -205,15 +245,6 @@
             }
         }
 
-        function intentarAgarrarNodo(x, y) {
-            let minDist = 80; 
-            nodoAgarrado = null;
-            nodos.forEach(n => {
-                let d = Math.hypot(x - n.x, y - n.y);
-                if (d < minDist) { minDist = d; nodoAgarrado = n; }
-            });
-        }
-
         function generar() {
             ctx.fillStyle = '#F0EAD6';
             ctx.fillRect(0, 0, width, height);
@@ -225,16 +256,16 @@
         }
 
         function dibujar() {
-            let speedFactor = simuladorBPM / 75; 
+            let speedFactor = latidoReal / 75; 
             tiempo += 0.02 * speedFactor;
 
+            // Veladura (Rastro de Carbón)
             ctx.fillStyle = 'rgba(240, 234, 214, 0.015)'; 
             ctx.fillRect(0, 0, width, height);
 
             nodos.forEach((a, i) => {
                 if (a === nodoAgarrado) {
-                    a.x += (manoX - a.x) * 0.2; 
-                    a.y += (manoY - a.y) * 0.2;
+                    a.x = mouse.x; a.y = mouse.y;
                     a.vx = 0; a.vy = 0;
                 } else {
                     a.actualizar(speedFactor);
@@ -269,14 +300,6 @@
                 ctx.fillStyle = 'rgba(34, 34, 34, 0.4)';
                 ctx.fill();
             });
-
-            if (manoX > 0) {
-                ctx.beginPath();
-                ctx.arc(manoX, manoY, isPinching ? 8 : 4, 0, Math.PI * 2);
-                ctx.strokeStyle = isPinching ? '#d9534f' : '#222222';
-                ctx.lineWidth = 2;
-                ctx.stroke();
-            }
 
             requestAnimationFrame(dibujar);
         }
