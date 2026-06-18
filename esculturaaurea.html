@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flujo Binario Sensitivo</title>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #222222; color: #F0EAD6; font-family: 'Courier New', Courier, monospace; user-select: none; }
+        .input_video { display: none; } 
+        
+        /* Contenedor Retráctil del Menú */
+        #ui-wrapper { 
+            position: absolute; top: 20px; left: 20px; z-index: 10; 
+            display: flex; align-items: flex-start; 
+            transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1); 
+        }
+        
+        /* Oculta los 320px del panel + los 20px de margen izquierdo para que quede al ras */
+        #ui-wrapper.oculto { 
+            transform: translateX(-340px); 
+        }
+        
+        #panel { 
+            width: 320px; background: rgba(34, 34, 34, 0.9); padding: 25px; 
+            border: 1px solid #F0EAD6; border-right: none; box-sizing: border-box; 
+            backdrop-filter: blur(4px); box-shadow: 2px 2px 15px rgba(0,0,0,0.5);
+        }
+        
+        /* Pestaña para ocultar/mostrar */
+        #toggleBtn { 
+            background: rgba(34, 34, 34, 0.9); color: #F0EAD6; border: 1px solid #F0EAD6; 
+            border-left: none; padding: 15px 10px; cursor: pointer; width: 35px;
+            font-size: 16px; display: flex; align-items: center; justify-content: center; 
+            transition: background 0.3s, color 0.3s; height: 50px;
+        }
+        #toggleBtn:hover { background: #F0EAD6; color: #222222; }
+
+        h3 { margin: 0 0 10px 0; border-bottom: 1px solid #F0EAD6; padding-bottom: 10px; font-weight: bold; letter-spacing: 1px; text-transform: uppercase; }
+        label { font-size: 11px; display: block; margin-top: 15px; font-weight: bold; }
+        
+        input[type="text"] { 
+            width: 100%; background: #222; border: 1px solid #F0EAD6; 
+            color: #F0EAD6; padding: 10px; margin-top: 5px; box-sizing: border-box; font-family: monospace; font-size: 16px; outline: none;
+        }
+        
+        .btn-accion { 
+            width: 100%; padding: 12px; margin-top: 20px; 
+            background: #F0EAD6; color: #222; border: none; 
+            cursor: pointer; font-weight: bold; text-transform: uppercase; letter-spacing: 1px;
+            transition: background 0.3s ease;
+        }
+        .btn-accion:hover { background: #ffffff; }
+
+        /* Botones de Navegación */
+        .btn-nav-group { display: flex; gap: 10px; margin-top: 15px; }
+        .btn-nav { 
+            flex: 1; padding: 10px; background: transparent; color: #F0EAD6; 
+            border: 1px solid #F0EAD6; cursor: pointer; font-family: monospace;
+            font-size: 10px; text-transform: uppercase; font-weight: bold; transition: all 0.3s;
+        }
+        .btn-nav:hover { background: rgba(240, 234, 214, 0.2); }
+
+        .adn-container { 
+            margin-top: 10px; font-size: 10px; word-break: break-all; 
+            color: #aaa; line-height: 1.4; border: 1px dashed #555; padding: 10px; background: #1a1a1a;
+            max-height: 60px; overflow-y: auto;
+        }
+        
+        .status { margin-top: 15px; font-size: 11px; font-weight: bold; color: #5cb85c; }
+        canvas { display: block; position: absolute; top: 0; left: 0; z-index: 1; cursor: crosshair; }
+    </style>
+</head>
+<body>
+
+    <video class="input_video" autoplay playsinline></video>
+    <canvas id="lienzo"></canvas>
+
+    <div id="ui-wrapper">
+        <div id="panel">
+            <h3>Flujo Binario</h3>
+            
+            <label>ID DEL ESPECTADOR:</label>
+            <input type="text" id="nameInput" value="Mondrian" autocomplete="off">
+            
+            <button id="btnGenerar" class="btn-accion">Sintetizar Puntos</button>
+            
+            <div class="btn-nav-group">
+                <button id="btnInicio" class="btn-nav">◄ Inicio</button>
+                <button id="btnAbstraccion" class="btn-nav">Abstracción ►</button>
+            </div>
+            
+            <label>MATERIA BINARIA:</label>
+            <div id="adnVisual" class="adn-container">00000000</div>
+
+            <div id="cameraStatus" class="status">Calibrando Sensor Óptico...</div>
+            
+            <div style="font-size: 10px; opacity: 0.8; margin-top: 15px; line-height: 1.5; color: #ccc;">
+                <b>La Dinámica:</b><br>
+                • <b>[0]</b> Flotan y se entrelazan creando una malla.<br>
+                • <b>[1]</b> Flotan en absoluta soledad.<br>
+                • Mueve la mano para crear una brisa que desplaza los puntos. Pellizca para atraerlos.
+            </div>
+        </div>
+        <button id="toggleBtn" title="Ocultar Menú">◀</button>
+    </div>
+
+    <script>
+        // ==========================================
+        // UI & NAVEGACIÓN
+        // ==========================================
+        const toggleBtn = document.getElementById('toggleBtn');
+        const uiWrapper = document.getElementById('ui-wrapper');
+        
+        toggleBtn.addEventListener('click', () => {
+            uiWrapper.classList.toggle('oculto');
+            toggleBtn.innerHTML = uiWrapper.classList.contains('oculto') ? '▶' : '◀';
+        });
+
+        document.getElementById('btnInicio').addEventListener('click', () => {
+            window.location.href = 'index.html';
+        });
+
+        document.getElementById('btnAbstraccion').addEventListener('click', () => {
+            const abstracciones = ['esculturaaurea.html', 'galaxia.html', 'galaxia2manos.html', 'codigobueno.html', 'binart.html'];
+            const destino = abstracciones[Math.floor(Math.random() * abstracciones.length)];
+            window.location.href = destino;
+        });
+
+        const nameInput = document.getElementById('nameInput');
+        const nombreGuardado = localStorage.getItem('binart_user');
+        if (nombreGuardado) nameInput.value = nombreGuardado;
+
+        // ==========================================
+        // SÍNTESIS SONORA INTERESTELAR
+        // ==========================================
+        let audioCtx, masterGain, audioIniciado = false;
+        
+        function iniciarAudio() {
+            if (audioIniciado) return;
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            masterGain = audioCtx.createGain();
+            masterGain.gain.value = 0.15; 
+            masterGain.connect(audioCtx.destination);
+
+            // Acorde Dmaj7 (Re Mayor con Séptima Mayor) para atmósfera flotante
+            const frecuencias = [146.83, 185.00, 220.00, 277.18]; 
+            
+            frecuencias.forEach(freq => {
+                let osc = audioCtx.createOscillator();
+                osc.type = 'sine'; 
+                osc.frequency.value = freq;
+                
+                let oscGain = audioCtx.createGain();
+                oscGain.gain.value = 0.25;
+                
+                let lfo = audioCtx.createOscillator();
+                lfo.type = 'sine';
+                lfo.frequency.value = 0.05 + (Math.random() * 0.08); 
+                
+                let lfoGain = audioCtx.createGain();
+                lfoGain.gain.value = 0.2; 
+                
+                lfo.connect(lfoGain);
+                lfoGain.connect(oscGain.gain);
+                
+                osc.connect(oscGain);
+                oscGain.connect(masterGain);
+                
+                osc.start();
+                lfo.start();
+            });
+            audioIniciado = true;
+        }
+
+        document.body.addEventListener('click', iniciarAudio, { once: true });
+
+        // ==========================================
+        // LÓGICA PRINCIPAL DEL FLUJO BINARIO
+        // ==========================================
+        const videoElement = document.getElementsByClassName('input_video')[0];
+        const canvas = document.getElementById('lienzo');
+        const ctx = canvas.getContext('2d');
+        const btnGenerar = document.getElementById('btnGenerar');
+        const adnVisual = document.getElementById('adnVisual');
+        const cameraStatus = document.getElementById('cameraStatus');
+
+        let width, height;
+        let particulas = [];
+        
+        let manoX = -1000, manoY = -1000;
+        let isPinching = false;
+        
+        let mouseX = -1000, mouseY = -1000;
+        let isMouseDown = false;
+
+        function resize() {
+            width = canvas.width = window.innerWidth;
+            height = canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        // 1. RECONOCIMIENTO ÓPTICO (MediaPipe)
+        const hands = new Hands({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`});
+        hands.setOptions({ maxNumHands: 1, modelComplexity: 1, minDetectionConfidence: 0.7, minTrackingConfidence: 0.7 });
+
+        hands.onResults((results) => {
+            if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+                const landmarks = results.multiHandLandmarks[0];
+                const indice = landmarks[8]; 
+                const pulgar = landmarks[4];
+                
+                manoX = (1 - indice.x) * width; 
+                manoY = indice.y * height;
+                
+                let distDedos = Math.hypot(indice.x - pulgar.x, indice.y - pulgar.y);
+                isPinching = distDedos < 0.06;
+            } else {
+                isPinching = false; manoX = -1000; manoY = -1000;
+            }
+        });
+
+        const camera = new Camera(videoElement, {
+            onFrame: async () => {
+                cameraStatus.innerText = "Sensor Óptico: ACTIVO";
+                await hands.send({image: videoElement}); 
+            },
+            width: 640, height: 480
+        });
+        camera.start();
+
+        window.addEventListener('mousedown', (e) => { 
+            if(e.target.closest('#ui-wrapper')) return; // Prevenir arrastre del lienzo si se hace clic en la UI
+            isMouseDown = true; mouseX = e.clientX; mouseY = e.clientY; 
+        });
+        window.addEventListener('mouseup', () => isMouseDown = false);
+        window.addEventListener('mousemove', (e) => { mouseX = e.clientX; mouseY = e.clientY; });
+
+        // 2. FÍSICAS DE FLOTE LIBRE
+        class ParticulaFlotante {
+            constructor(x, y, tipo) {
+                this.x = x; 
+                this.y = y;
+                this.tipo = tipo; 
+                
+                this.vx = (Math.random() - 0.5) * 1.5;
+                this.vy = (Math.random() - 0.5) * 1.5;
+            }
+
+            actualizar(tx, ty, interactuando) {
+                this.x += this.vx;
+                this.y += this.vy;
+
+                if (this.x < 0 || this.x > width) this.vx *= -1;
+                if (this.y < 0 || this.y > height) this.vy *= -1;
+
+                if (tx > 0) {
+                    let dx = this.x - tx;
+                    let dy = this.y - ty;
+                    let dist = Math.hypot(dx, dy);
+
+                    if (dist < 180) {
+                        let fuerza = (180 - dist) * 0.0002;
+                        if (interactuando) {
+                            this.vx -= dx * fuerza;
+                            this.vy -= dy * fuerza;
+                        } else {
+                            this.vx += dx * fuerza;
+                            this.vy += dy * fuerza;
+                        }
+                    }
+                }
+
+                let speed = Math.hypot(this.vx, this.vy);
+                if (speed > 1.5 && !interactuando) {
+                    this.vx *= 0.98;
+                    this.vy *= 0.98;
+                } else if (speed < 0.2) {
+                    this.vx *= 1.02;
+                    this.vy *= 1.02;
+                }
+            }
+        }
+
+        // 3. GENERACIÓN BINARIA
+        function sintetizarFlujo() {
+            iniciarAudio();
+            localStorage.setItem('binart_user', nameInput.value);
+
+            particulas = [];
+            let nombre = nameInput.value || "Arte";
+            const binStr = nombre.split('').map(c => c.charCodeAt(0).toString(2).padStart(8, '0')).join('');
+            
+            let htmlAdn = "";
+            for(let i=0; i<binStr.length; i++) {
+                htmlAdn += binStr[i] === '1' ? `<b style="color:#F0EAD6; font-size:12px;">1</b>` : `<span style="color:#888;">0</span>`;
+            }
+            adnVisual.innerHTML = htmlAdn;
+
+            const densidad = 15; 
+            
+            for (let i = 0; i < binStr.length; i++) {
+                let bit = parseInt(binStr[i]);
+                for (let j = 0; j < densidad; j++) {
+                    let startX = Math.random() * width;
+                    let startY = Math.random() * height;
+                    particulas.push(new ParticulaFlotante(startX, startY, bit));
+                }
+            }
+        }
+
+        // 4. BUCLE GRÁFICO 
+        function dibujar() {
+            ctx.fillStyle = '#222222';
+            ctx.fillRect(0, 0, width, height);
+
+            let interactuando = isPinching || isMouseDown;
+            let targetX = manoX > 0 ? manoX : mouseX;
+            let targetY = manoY > 0 ? manoY : mouseY;
+
+            for (let i = 0; i < particulas.length; i++) {
+                particulas[i].actualizar(targetX, targetY, interactuando);
+            }
+
+            ctx.lineWidth = 1;
+            for (let i = 0; i < particulas.length; i++) {
+                let p1 = particulas[i];
+                if (p1.tipo === 1) continue; 
+
+                for (let j = i + 1; j < particulas.length; j++) {
+                    let p2 = particulas[j];
+                    if (p2.tipo === 1) continue; 
+                    
+                    let dx = p2.x - p1.x; 
+                    let dy = p2.y - p1.y;
+                    let distSq = dx * dx + dy * dy;
+                    
+                    if (distSq < 10000) { 
+                        let dist = Math.sqrt(distSq);
+                        let opacidad = 1 - (dist / 100);
+                        
+                        ctx.beginPath();
+                        ctx.moveTo(p1.x, p1.y);
+                        ctx.lineTo(p2.x, p2.y);
+                        ctx.strokeStyle = `rgba(240, 234, 214, ${opacidad * 0.5})`;
+                        ctx.stroke();
+                    }
+                }
+            }
+
+            for (let i = 0; i < particulas.length; i++) {
+                let p = particulas[i];
+                ctx.beginPath();
+                
+                if (p.tipo === 1) {
+                    ctx.arc(p.x, p.y, 3.5, 0, Math.PI * 2);
+                    ctx.fillStyle = '#F0EAD6';
+                } else {
+                    ctx.arc(p.x, p.y, 2, 0, Math.PI * 2);
+                    ctx.fillStyle = 'rgba(240, 234, 214, 0.6)';
+                }
+                ctx.fill();
+            }
+
+            if (targetX > 0) {
+                ctx.beginPath();
+                ctx.arc(targetX, targetY, interactuando ? 18 : 8, 0, Math.PI * 2);
+                ctx.strokeStyle = interactuando ? '#F0EAD6' : 'rgba(240, 234, 214, 0.3)';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+            }
+
+            requestAnimationFrame(dibujar);
+        }
+
+        btnGenerar.addEventListener('click', sintetizarFlujo);
+        sintetizarFlujo(); 
+        dibujar();
+    </script>
+</body>
+</html>

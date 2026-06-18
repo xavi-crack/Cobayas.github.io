@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Galaxia de Fibonacci - Interacción Multigestual</title>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #222222; color: #F0EAD6; font-family: 'Courier New', Courier, monospace; user-select: none; }
+        .input_video { display: none; } 
+        
+        /* Contenedor Retráctil del Menú */
+        #ui-wrapper { 
+            position: absolute; top: 20px; left: 20px; z-index: 10; 
+            display: flex; align-items: flex-start; 
+            transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1); 
+        }
+        
+        /* Oculta exactamente los 330px del panel + 20px de margen */
+        #ui-wrapper.oculto { 
+            transform: translateX(-350px); 
+        }
+        
+        #panel { 
+            width: 330px; background: rgba(34, 34, 34, 0.9); padding: 25px; 
+            border: 1px solid #F0EAD6; border-right: none; box-sizing: border-box; 
+            backdrop-filter: blur(4px); box-shadow: 2px 2px 15px rgba(0,0,0,0.5);
+        }
+        
+        /* Pestaña para ocultar/mostrar */
+        #toggleBtn { 
+            background: rgba(34, 34, 34, 0.9); color: #F0EAD6; border: 1px solid #F0EAD6; 
+            border-left: none; padding: 15px 10px; cursor: pointer; width: 35px;
+            font-size: 16px; display: flex; align-items: center; justify-content: center; 
+            transition: background 0.3s, color 0.3s; height: 50px;
+        }
+        #toggleBtn:hover { background: #F0EAD6; color: #222222; }
+
+        h3 { margin: 0 0 15px 0; border-bottom: 1px solid #F0EAD6; padding-bottom: 10px; font-weight: bold; letter-spacing: 1px; }
+        label { font-size: 11px; display: block; margin-top: 15px; font-weight: bold; }
+        
+        input[type="text"] { 
+            width: 100%; background: #222; border: 1px solid #F0EAD6; 
+            color: #F0EAD6; padding: 8px; margin-top: 5px; box-sizing: border-box; font-family: monospace; outline: none;
+        }
+        
+        .btn-accion { 
+            width: 100%; padding: 12px; margin-top: 15px; 
+            background: #F0EAD6; color: #222; border: none; 
+            cursor: pointer; text-transform: uppercase; font-weight: bold; letter-spacing: 1px;
+            transition: background 0.3s ease;
+        }
+        .btn-accion:hover { background: #ffffff; }
+
+        /* Botones de Navegación */
+        .btn-nav-group { display: flex; gap: 10px; margin-top: 15px; }
+        .btn-nav { 
+            flex: 1; padding: 10px; background: transparent; color: #F0EAD6; 
+            border: 1px solid #F0EAD6; cursor: pointer; font-family: monospace;
+            font-size: 10px; text-transform: uppercase; font-weight: bold; transition: all 0.3s;
+        }
+        .btn-nav:hover { background: rgba(240, 234, 214, 0.2); }
+
+        .selector-fibonacci { display: flex; gap: 8px; margin-top: 8px; }
+        .btn-fib { 
+            flex: 1; padding: 6px; background: transparent; color: #F0EAD6; 
+            border: 1px solid #F0EAD6; cursor: pointer; font-family: monospace; font-size: 11px;
+            transition: background 0.3s, color 0.3s;
+        }
+        .btn-fib.activo { background: #F0EAD6; color: #222; font-weight: bold; }
+        
+        .status { margin-top: 15px; font-size: 11px; font-weight: bold; color: #5cb85c; }
+        .stats { margin-top: 10px; font-size: 11px; color: #F0EAD6; opacity: 0.8; line-height: 1.5; }
+        
+        canvas { display: block; position: absolute; top: 0; left: 0; z-index: 1; cursor: crosshair; }
+    </style>
+</head>
+<body>
+
+    <video class="input_video" autoplay playsinline></video>
+    <canvas id="lienzo"></canvas>
+
+    <div id="ui-wrapper">
+        <div id="panel">
+            <h3>Dinámica de Fibonacci</h3>
+            
+            <label>ID DEL ESPECTADOR:</label>
+            <input type="text" id="inputNombre" value="Arte" autocomplete="off">
+            
+            <label>FRECUENCIA DE FIBONACCI (Brazos):</label>
+            <div class="selector-fibonacci">
+                <button class="btn-fib" onclick="cambiarFrecuencia(3)">F[4]=3</button>
+                <button class="btn-fib activo" onclick="cambiarFrecuencia(5)">F[5]=5</button>
+                <button class="btn-fib" onclick="cambiarFrecuencia(8)">F[6]=8</button>
+                <button class="btn-fib" onclick="cambiarFrecuencia(13)">F[7]=13</button>
+            </div>
+
+            <button id="btnGenerar" class="btn-accion" onclick="generarGalaxia()">Sintetizar Cosmos</button>
+            
+            <div class="btn-nav-group">
+                <button id="btnInicio" class="btn-nav">◄ Inicio</button>
+                <button id="btnAbstraccion" class="btn-nav">Abstracción ►</button>
+            </div>
+            
+            <div id="statsInfo" class="stats">Iniciando cosmología...</div>
+            <div id="cameraStatus" class="status">Calibrando Sensor Óptico...</div>
+            
+            <div style="font-size: 10px; opacity: 0.7; margin-top: 15px; line-height: 1.5; color: #aaa;">
+                <b>Gobernanza Multigestual (1 Mano):</b><br>
+                • <b>Pellizco (Índice + Pulgar):</b> Agujero Negro / Absorción.<br>
+                • <b>Mano Abierta (Dedos separados):</b> Supernova / Expulsión.<br>
+                • <b>Mano Relajada:</b> Deformación orbital elástica sutil.
+            </div>
+        </div>
+        <button id="toggleBtn" title="Ocultar Menú">◀</button>
+    </div>
+
+    <script>
+        // ==========================================
+        // UI & NAVEGACIÓN
+        // ==========================================
+        const toggleBtn = document.getElementById('toggleBtn');
+        const uiWrapper = document.getElementById('ui-wrapper');
+        
+        toggleBtn.addEventListener('click', () => {
+            uiWrapper.classList.toggle('oculto');
+            toggleBtn.innerHTML = uiWrapper.classList.contains('oculto') ? '▶' : '◀';
+        });
+
+        document.getElementById('btnInicio').addEventListener('click', () => {
+            window.location.href = 'index.html';
+        });
+
+        document.getElementById('btnAbstraccion').addEventListener('click', () => {
+            const abstracciones = ['esculturaaurea.html', 'galaxia.html', 'codigobueno.html', 'binart.html'];
+            const destino = abstracciones[Math.floor(Math.random() * abstracciones.length)];
+            window.location.href = destino;
+        });
+
+        const inputNombre = document.getElementById('inputNombre');
+        const nombreGuardado = localStorage.getItem('binart_user');
+        if (nombreGuardado) inputNombre.value = nombreGuardado;
+
+        // ==========================================
+        // SÍNTESIS SONORA INTERESTELAR
+        // ==========================================
+        let audioCtx, masterGain, audioIniciado = false;
+        
+        function iniciarAudio() {
+            if (audioIniciado) return;
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            masterGain = audioCtx.createGain();
+            masterGain.gain.value = 0.15; // Volumen contemplativo
+            masterGain.connect(audioCtx.destination);
+
+            // Acorde Dmaj7 (Re Mayor con Séptima Mayor) para atmósfera flotante
+            const frecuencias = [146.83, 185.00, 220.00, 277.18]; 
+            
+            frecuencias.forEach(freq => {
+                let osc = audioCtx.createOscillator();
+                osc.type = 'sine'; // Onda pura
+                osc.frequency.value = freq;
+                
+                let oscGain = audioCtx.createGain();
+                oscGain.gain.value = 0.25;
+                
+                // LFO para el titilar estelar
+                let lfo = audioCtx.createOscillator();
+                lfo.type = 'sine';
+                lfo.frequency.value = 0.05 + (Math.random() * 0.08); 
+                
+                let lfoGain = audioCtx.createGain();
+                lfoGain.gain.value = 0.2; 
+                
+                lfo.connect(lfoGain);
+                lfoGain.connect(oscGain.gain);
+                
+                osc.connect(oscGain);
+                oscGain.connect(masterGain);
+                
+                osc.start();
+                lfo.start();
+            });
+            audioIniciado = true;
+        }
+
+        document.body.addEventListener('click', iniciarAudio, { once: true });
+
+        // ==========================================
+        // LÓGICA PRINCIPAL (Cámara y 3D)
+        // ==========================================
+        const videoElement = document.getElementsByClassName('input_video')[0];
+        const canvas = document.getElementById('lienzo');
+        const ctx = canvas.getContext('2d');
+        const cameraStatus = document.getElementById('cameraStatus');
+        const statsInfo = document.getElementById('statsInfo');
+
+        let width, height;
+        let particulas = [];
+        let brazosFibonacci = 5; 
+
+        // Estados de la IA Gestual
+        let manoX = -1000, manoY = -1000;
+        let gestoActivo = "ninguno"; 
+        
+        let mouseX = -1000, mouseY = -1000;
+        let isMouseDown = false;
+        let mouseRightClick = false;
+
+        const focalLength = 400;
+        const cameraZ = 700;
+        let anguloRotacionGalaxia = 0;
+        let inclinacionX = 0.35; 
+
+        function resize() {
+            width = canvas.width = window.innerWidth;
+            height = canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        // 1. RECONOCIMIENTO MULTIGESTUAL (MediaPipe)
+        const hands = new Hands({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`});
+        hands.setOptions({ maxNumHands: 1, modelComplexity: 1, minDetectionConfidence: 0.7, minTrackingConfidence: 0.7 });
+
+        hands.onResults((results) => {
+            if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+                const landmarks = results.multiHandLandmarks[0];
+                
+                manoX = (1 - landmarks[8].x) * width;
+                manoY = landmarks[8].y * height;
+
+                let dPulgarIndice = Math.hypot(landmarks[8].x - landmarks[4].x, landmarks[8].y - landmarks[4].y);
+                let dPulgarMenique = Math.hypot(landmarks[20].x - landmarks[4].x, landmarks[20].y - landmarks[4].y);
+
+                if (dPulgarIndice < 0.05) {
+                    gestoActivo = "atraer"; 
+                } else if (dPulgarMenique > 0.18) {
+                    gestoActivo = "expulsar"; 
+                } else {
+                    gestoActivo = "ninguno"; 
+                }
+            } else {
+                manoX = -1000; manoY = -1000; gestoActivo = "ninguno";
+            }
+        });
+
+        const camera = new Camera(videoElement, {
+            onFrame: async () => {
+                cameraStatus.innerText = "Sensor Gestual: ACTIVO";
+                cameraStatus.style.color = "#5cb85c";
+                await hands.send({image: videoElement}); 
+            },
+            width: 640, height: 480
+        });
+        camera.start();
+
+        // Control de Respaldo por Mouse
+        window.addEventListener('mousedown', (e) => { 
+            if(e.target.closest('#ui-wrapper')) return; // Prevenir interacciones en la UI
+            isMouseDown = true; mouseRightClick = (e.button === 2); 
+            mouseX = e.clientX; mouseY = e.clientY; 
+            gestoActivo = mouseRightClick ? "expulsar" : "atraer"; 
+        });
+        window.addEventListener('mouseup', () => { isMouseDown = false; gestoActivo = "ninguno"; });
+        window.addEventListener('mousemove', (e) => { mouseX = e.clientX; mouseY = e.clientY; });
+        window.addEventListener('contextmenu', e => e.preventDefault());
+
+        function cambiarFrecuencia(num) {
+            brazosFibonacci = num;
+            document.querySelectorAll('.btn-fib').forEach(b => b.classList.remove('activo'));
+            event.target.classList.add('activo');
+            generarGalaxia();
+        }
+
+        // 2. CLASE PARTÍCULA ORBITAL 3D
+        class Estrella3D {
+            constructor(radioOrbita, anguloInicial, yBase, tipoColor) {
+                this.radioOrbita = radioOrbita;
+                this.angulo = anguloInicial;
+                this.yBase = yBase;
+                this.tipoColor = tipoColor; 
+
+                this.velocidadOrbital = (1 / Math.sqrt(radioOrbita)) * 0.5 + 0.001;
+
+                this.offsetX = 0; this.offsetY = 0; this.offsetZ = 0;
+                this.vX = 0; this.vY = 0; this.vZ = 0;
+                this.brilloRandom = Math.random() * 0.4 + 0.6;
+            }
+
+            actualizar(tx, ty) {
+                this.angulo += this.velocidadOrbital;
+
+                let xTeorico = Math.cos(this.angulo) * this.radioOrbita;
+                let zTeorico = Math.sin(this.angulo) * this.radioOrbita;
+                let yTeorico = this.yBase;
+
+                let retornoK = 0.06;
+                let fX = -this.offsetX * retornoK;
+                let fY = -this.offsetY * retornoK;
+                let fZ = -this.offsetZ * retornoK;
+
+                if (tx > 0 && gestoActivo !== "ninguno") {
+                    let cx = width / 2; let cy = height / 2;
+                    let posX3D = xTeorico + this.offsetX;
+                    let posY3D = yTeorico + this.offsetY;
+                    let posZ3D = zTeorico + this.offsetZ;
+
+                    let rx = posX3D * Math.cos(anguloRotacionGalaxia) - posZ3D * Math.sin(anguloRotacionGalaxia);
+                    let rz = posZ3D * Math.cos(anguloRotacionGalaxia) + posX3D * Math.sin(anguloRotacionGalaxia);
+                    let finalY = posY3D * Math.cos(inclinacionX) - rz * Math.sin(inclinacionX);
+                    let finalZ = rz * Math.cos(inclinacionX) + posY3D * Math.sin(inclinacionX);
+
+                    let escalaFocal = focalLength / (focalLength + finalZ + cameraZ);
+                    let screenX = cx + rx * escalaFocal;
+                    let screenY = cy + finalY * escalaFocal;
+
+                    let dx = tx - screenX;
+                    let dy = ty - screenY;
+                    let d = Math.hypot(dx, dy) || 1;
+
+                    if (d < 250) {
+                        let fuerzaMagnitud = (1 - d / 250);
+                        if (gestoActivo === "atraer") {
+                            fX += (dx / d) * fuerzaMagnitud * 25;
+                            fY += (dy / d) * fuerzaMagnitud * 25;
+                            fZ -= fuerzaMagnitud * 15;
+                        } else if (gestoActivo === "expulsar") {
+                            fX -= (dx / d) * fuerzaMagnitud * 40;
+                            fY -= (dy / d) * fuerzaMagnitud * 40;
+                            fZ += fuerzaMagnitud * 20;
+                        }
+                    }
+                }
+
+                this.vX += fX; this.vY += fY; this.vZ += fZ;
+                this.vX *= 0.84; this.vY *= 0.84; this.vZ *= 0.84; 
+
+                this.offsetX += this.vX; this.offsetY += this.vY; this.offsetZ += this.vZ;
+
+                return {
+                    x: xTeorico + this.offsetX,
+                    y: yTeorico + this.offsetY,
+                    z: zTeorico + this.offsetZ
+                };
+            }
+        }
+
+        // 3. ARQUITECTURA DE LA GALAXIA DE FIBONACCI
+        function generarGalaxia() {
+            iniciarAudio();
+            localStorage.setItem('binart_user', inputNombre.value);
+
+            particulas = [];
+            const estrellasPorBrazo = 350; 
+            const anguloAureo = Math.PI * (3 - Math.sqrt(5)); 
+
+            for (let b = 0; b < brazosFibonacci; b++) {
+                let anguloBrazoBase = (Math.PI * 2 / brazosFibonacci) * b;
+
+                for (let i = 0; i < estrellasPorBrazo; i++) {
+                    let t = i / estrellasPorBrazo;
+                    let radioOrbita = 25 + Math.pow(t, 1.5) * 450; 
+
+                    let espiralTorsión = radioOrbita * 0.015;
+                    let anguloEstrella = anguloBrazoBase + espiralTorsión + (Math.random() - 0.5) * 0.2;
+
+                    let esNúcleo = radioOrbita < 90;
+                    let yBase = esNúcleo ? (Math.random() - 0.5) * (90 - radioOrbita) : (Math.random() - 0.5) * 20;
+
+                    let tipoColor = 0; 
+                    if (esNúcleo && Math.random() > 0.5) tipoColor = 1; 
+                    else if (!esNúcleo && Math.random() > 0.7) tipoColor = 2; 
+
+                    particulas.push(new Estrella3D(radioOrbita, anguloEstrella, yBase, tipoColor));
+                }
+            }
+
+            statsInfo.innerHTML = `
+                Frecuencia actual: <b>${brazosFibonacci} Brazos</b><br>
+                Estructura: Espiral Logarítmica Áurea<br>
+                Estrellas simuladas: ${particulas.length} nodos`;
+        }
+
+        // 4. MOTOR GRÁFICO 3D (Z-Sorting y Render)
+        function dibujar() {
+            ctx.fillStyle = '#222222';
+            ctx.fillRect(0, 0, width, height);
+
+            let tx = manoX > 0 ? manoX : (isMouseDown ? mouseX : -1000);
+            let ty = manoY > 0 ? manoY : (isMouseDown ? mouseY : -1000);
+
+            anguloRotacionGalaxia += 0.002;
+
+            let cx = width / 2; let cy = height / 2;
+            let bufferRender3D = [];
+
+            for (let i = 0; i < particulas.length; i++) {
+                let pos3D = particulas[i].actualizar(tx, ty);
+
+                let rx = pos3D.x * Math.cos(anguloRotacionGalaxia) - pos3D.z * Math.sin(anguloRotacionGalaxia);
+                let rz = pos3D.z * Math.cos(anguloRotacionGalaxia) + pos3D.x * Math.sin(anguloRotacionGalaxia);
+                let ry = pos3D.y;
+
+                let finalY = ry * Math.cos(inclinacionX) - rz * Math.sin(inclinacionX);
+                let finalZ = rz * Math.cos(inclinacionX) + ry * Math.sin(inclinacionX);
+
+                bufferRender3D.push({ p: particulas[i], x: rx, y: finalY, z: finalZ });
+            }
+
+            bufferRender3D.sort((a, b) => b.z - a.z);
+
+            for (let i = 0; i < bufferRender3D.length; i++) {
+                let punto = bufferRender3D[i];
+                let distCamaraTotal = focalLength + punto.z + cameraZ;
+                if (distCamaraTotal <= 0) continue;
+
+                let escalaPerspectiva = focalLength / distCamaraTotal;
+                let screenX = cx + punto.x * escalaPerspectiva;
+                let screenY = cy + punto.y * escalaPerspectiva;
+
+                let radioBase = punto.p.tipoColor === 1 ? 1.6 : 1.0;
+                let tamañoStar = Math.max(0.1, radioBase * escalaPerspectiva * 2.2);
+
+                let alphaZ = Math.min(1, Math.max(0.05, 1 - ((punto.z + 300) / 1000)));
+                let opacidad = punto.p.brilloRandom * alphaZ;
+
+                if (punto.p.tipoColor === 1) {
+                    ctx.fillStyle = `rgba(255, 255, 255, ${opacidad * 0.9})`; 
+                } else if (punto.p.tipoColor === 2) {
+                    ctx.fillStyle = `rgba(160, 160, 160, ${opacidad * 0.6})`; 
+                } else {
+                    ctx.fillStyle = `rgba(240, 234, 214, ${opacidad})`; 
+                }
+
+                ctx.fillRect(screenX - tamañoStar/2, screenY - tamañoStar/2, tamañoStar, tamañoStar);
+            }
+
+            if (tx > 0) {
+                ctx.beginPath();
+                let radioCursor = 8;
+                if (gestoActivo === "atraer") { radioCursor = 18; ctx.strokeStyle = '#F0EAD6'; }
+                else if (gestoActivo === "expulsar") { radioCursor = 26; ctx.strokeStyle = '#d9534f'; }
+                else { ctx.strokeStyle = 'rgba(240, 234, 214, 0.3)'; }
+
+                ctx.arc(tx, ty, radioCursor, 0, Math.PI * 2);
+                ctx.lineWidth = 2;
+                ctx.stroke();
+            }
+
+            requestAnimationFrame(dibujar);
+        }
+
+        generarGalaxia();
+        dibujar();
+    </script>
+</body>
+</html>

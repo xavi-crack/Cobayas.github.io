@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Matriz Binaria - Tejido Sensitivo</title>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #F0EAD6; font-family: 'Courier New', Courier, monospace; user-select: none; }
+        .input_video { display: none; } 
+        
+        #ui-wrapper { 
+            position: absolute; top: 30px; left: 30px; z-index: 10; 
+            display: flex; align-items: flex-start; 
+            transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1); 
+        }
+        
+        #ui-wrapper.oculto { 
+            transform: translateX(-330px); /* Oculta exactamente los 300px del panel + 30px de margen */
+        }
+        
+        #ui-panel { 
+            width: 300px; background: rgba(240, 234, 214, 0.9); padding: 25px; 
+            border: 1px solid #222222; border-radius: 2px 0 0 2px; box-sizing: border-box; 
+            box-shadow: 2px 2px 15px rgba(0,0,0,0.15); backdrop-filter: blur(5px);
+        }
+        
+        #toggleBtn { 
+            background: #222222; color: #F0EAD6; border: 1px solid #222222; border-left: none; 
+            padding: 15px 10px; width: 35px; cursor: pointer; border-radius: 0 6px 6px 0; font-size: 16px; 
+            display: flex; align-items: center; justify-content: center; transition: opacity 0.3s;
+        }
+        #toggleBtn:hover { opacity: 0.8; }
+        
+        h3 { font-size: 14px; text-transform: uppercase; border-bottom: 1px solid #222; padding-bottom: 10px; margin-top: 0; letter-spacing: 1px;}
+        
+        input[type="text"] { 
+            width: 100%; background: transparent; border: none; border-bottom: 1px solid #222; 
+            color: #222; padding: 5px 0; margin-top: 5px; font-family: inherit; font-size: 16px; 
+            box-sizing: border-box; outline: none; 
+        }
+        
+        .btn-accion { 
+            width: 100%; padding: 12px; margin-top: 20px; background: #222222; color: #F0EAD6; 
+            border: none; cursor: pointer; text-transform: uppercase; font-size: 12px; font-weight: bold; 
+            transition: background 0.3s;
+        }
+        .btn-accion:hover { background: #444; }
+
+        .btn-nav-group { display: flex; gap: 10px; margin-top: 10px; }
+        .btn-nav { 
+            flex: 1; padding: 10px; background: transparent; color: #222222; 
+            border: 1px solid #222222; cursor: pointer; font-family: monospace;
+            font-size: 10px; text-transform: uppercase; font-weight: bold; transition: all 0.3s;
+        }
+        .btn-nav:hover { background: rgba(34, 34, 34, 0.1); }
+        
+        .status { margin-top: 15px; font-size: 11px; font-weight: bold; color: #5cb85c; }
+        .contador { margin-top: 10px; font-size: 11px; color: #555; }
+        
+        canvas { display: block; position: absolute; top: 0; left: 0; z-index: 1; cursor: crosshair; }
+    </style>
+</head>
+<body>
+
+    <video class="input_video" autoplay playsinline></video>
+    <canvas id="lienzo"></canvas>
+
+    <div id="ui-wrapper">
+        <div id="ui-panel">
+            <h3>Tejido Sensitivo</h3>
+            
+            <label style="font-size: 11px; font-weight: bold;">ID DEL ESPECTADOR:</label>
+            <input type="text" id="nameInput" value="Sensible" autocomplete="off">
+            <div id="contadorBinario" class="contador">Matriz: 0 bits</div>
+            
+            <button id="generateBtn" class="btn-accion">Invocación Áurea</button>
+            
+            <div class="btn-nav-group">
+                <button id="btnInicio" class="btn-nav">◄ Inicio</button>
+                <button id="btnAbstraccion" class="btn-nav">Abstracción ►</button>
+            </div>
+
+            <div id="cameraStatus" class="status">Calibrando Gestos...</div>
+            
+            <p style="font-size: 10px; opacity: 0.8; margin-top: 20px; line-height: 1.5;">
+                * La matriz áurea es una tela elástica.<br>
+                * Junta índice y pulgar para agarrarla y esculpir.<br>
+                * Al soltar, la geometría encuentra su propio equilibrio sin colapsar.
+            </p>
+        </div>
+        <button id="toggleBtn" title="Ocultar Menú">◀</button>
+    </div>
+
+    <script>
+        // ==========================================
+        // SÍNTESIS SONORA INTERESTELAR
+        // ==========================================
+        let audioCtx, masterGain, audioIniciado = false;
+        
+        function iniciarAudio() {
+            if (audioIniciado) return;
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            masterGain = audioCtx.createGain();
+            masterGain.gain.value = 0.15; 
+            masterGain.connect(audioCtx.destination);
+
+            const frecuencias = [146.83, 185.00, 220.00, 277.18]; 
+            
+            frecuencias.forEach(freq => {
+                let osc = audioCtx.createOscillator();
+                osc.type = 'sine'; 
+                osc.frequency.value = freq;
+                
+                let oscGain = audioCtx.createGain();
+                oscGain.gain.value = 0.25;
+                
+                let lfo = audioCtx.createOscillator();
+                lfo.type = 'sine';
+                lfo.frequency.value = 0.05 + (Math.random() * 0.08); 
+                
+                let lfoGain = audioCtx.createGain();
+                lfoGain.gain.value = 0.2; 
+                
+                lfo.connect(lfoGain);
+                lfoGain.connect(oscGain.gain);
+                
+                osc.connect(oscGain);
+                oscGain.connect(masterGain);
+                
+                osc.start();
+                lfo.start();
+            });
+            audioIniciado = true;
+        }
+
+        document.body.addEventListener('click', iniciarAudio, { once: true });
+
+        // ==========================================
+        // UI & NAVEGACIÓN
+        // ==========================================
+        const toggleBtn = document.getElementById('toggleBtn');
+        const uiWrapper = document.getElementById('ui-wrapper');
+        
+        toggleBtn.addEventListener('click', () => {
+            uiWrapper.classList.toggle('oculto');
+            toggleBtn.innerHTML = uiWrapper.classList.contains('oculto') ? '▶' : '◀';
+        });
+
+        document.getElementById('btnInicio').addEventListener('click', () => {
+            window.location.href = 'index.html';
+        });
+
+        document.getElementById('btnAbstraccion').addEventListener('click', () => {
+            const abstracciones = ['esculturaaurea.html', 'galaxia.html', 'galaxia2manos.html', 'codigobueno.html', 'binart.html'];
+            const destino = abstracciones[Math.floor(Math.random() * abstracciones.length)];
+            window.location.href = destino;
+        });
+
+        const nameInput = document.getElementById('nameInput');
+        const nombreGuardado = localStorage.getItem('binart_user');
+        if (nombreGuardado) nameInput.value = nombreGuardado;
+
+        // ==========================================
+        // LÓGICA PRINCIPAL (Cámara y Físicas)
+        // ==========================================
+        const videoElement = document.getElementsByClassName('input_video')[0];
+        const canvas = document.getElementById('lienzo');
+        const ctx = canvas.getContext('2d');
+        const generateBtn = document.getElementById('generateBtn');
+        const cameraStatus = document.getElementById('cameraStatus');
+        const contadorBinario = document.getElementById('contadorBinario');
+
+        let width, height;
+        let nodos = [];
+        let estadoInstalacion = 0; 
+        
+        let manoX = -1000, manoY = -1000;
+        let isPinching = false;
+        let mouseX = -1000, mouseY = -1000;
+        let isMouseDown = false;
+        let nodoAgarrado = null;
+
+        function resize() {
+            width = canvas.width = window.innerWidth;
+            height = canvas.height = window.innerHeight;
+            ctx.fillStyle = '#F0EAD6';
+            ctx.fillRect(0, 0, width, height);
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        // 1. MOTOR IA (MediaPipe)
+        const hands = new Hands({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`});
+        hands.setOptions({ maxNumHands: 1, modelComplexity: 1, minDetectionConfidence: 0.7, minTrackingConfidence: 0.7 });
+
+        hands.onResults((results) => {
+            if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+                const landmarks = results.multiHandLandmarks[0];
+                const indice = landmarks[8];
+                const pulgar = landmarks[4];
+                
+                manoX = (1 - indice.x) * width; 
+                manoY = indice.y * height;
+                
+                if (Math.hypot(indice.x - pulgar.x, indice.y - pulgar.y) < 0.06) { 
+                    if (!isPinching) {
+                        isPinching = true;
+                        estadoInstalacion = 1; 
+                        intentarAgarrarNodo(manoX, manoY);
+                    }
+                } else { 
+                    isPinching = false;
+                    if(nodoAgarrado && !nodoAgarrado.agarreManual) nodoAgarrado = null;
+                }
+            } else {
+                manoX = -1000; manoY = -1000; isPinching = false;
+                if(nodoAgarrado && !nodoAgarrado.agarreManual) nodoAgarrado = null;
+            }
+        });
+
+        const camera = new Camera(videoElement, {
+            onFrame: async () => {
+                cameraStatus.innerText = "Cámara y Gestos: ACTIVOS";
+                await hands.send({image: videoElement}); 
+            },
+            width: 640, height: 480
+        });
+        camera.start();
+
+        // Control Mouse
+        function down(e) { 
+            if(e.target.closest('#ui-wrapper')) return;
+            mouseX = e.touches ? e.touches[0].clientX : e.clientX; 
+            mouseY = e.touches ? e.touches[0].clientY : e.clientY; 
+            isMouseDown = true; 
+            estadoInstalacion = 1; 
+            intentarAgarrarNodo(mouseX, mouseY, true); 
+        }
+        function up() { 
+            isMouseDown = false; 
+            if(nodoAgarrado) nodoAgarrado.agarreManual = false; 
+            nodoAgarrado = null; 
+        }
+        function move(e) { 
+            if(isMouseDown) { 
+                mouseX = e.touches ? e.touches[0].clientX : e.clientX; 
+                mouseY = e.touches ? e.touches[0].clientY : e.clientY; 
+            } 
+        }
+        window.addEventListener('mousedown', down);
+        window.addEventListener('mouseup', up);
+        window.addEventListener('mousemove', move);
+        window.addEventListener('touchstart', down, {passive: false});
+        window.addEventListener('touchend', up);
+        window.addEventListener('touchmove', move, {passive: false});
+
+        // 2. FÍSICAS DE ESTABILIDAD
+        class Nodo {
+            constructor(x, y, tipo) {
+                this.x = x; this.y = y; this.tipo = tipo; 
+                this.vx = 0; this.vy = 0; 
+                this.agarreManual = false; 
+                this.inerciaX = (Math.random() - 0.5) * 0.4; 
+                this.inerciaY = (Math.random() - 0.5) * 0.4;
+            }
+            actualizar() {
+                if (estadoInstalacion === 0) return;
+                this.x += this.vx; this.y += this.vy;
+                
+                if (this.x < 0) { this.x = 0; this.vx *= -1; }
+                if (this.x > width) { this.x = width; this.vx *= -1; }
+                if (this.y < 0) { this.y = 0; this.vy *= -1; }
+                if (this.y > height) { this.y = height; this.vy *= -1; }
+                
+                this.vx *= 0.85; this.vy *= 0.85;
+                
+                if (this.tipo === 1) {
+                    this.vx += this.inerciaX; this.vy += this.inerciaY;
+                }
+            }
+        }
+
+        function intentarAgarrarNodo(x, y, esMouse = false) {
+            let minDist = 100; nodoAgarrado = null;
+            nodos.forEach(n => {
+                let d = Math.hypot(x - n.x, y - n.y);
+                if (d < minDist) { 
+                    minDist = d; nodoAgarrado = n; 
+                    if(esMouse) n.agarreManual = true; 
+                }
+            });
+        }
+
+        // 3. NACIMIENTO: FILOTAXIA ÁUREA
+        function generar() {
+            iniciarAudio();
+            localStorage.setItem('binart_user', nameInput.value); 
+            
+            ctx.fillStyle = '#F0EAD6';
+            ctx.fillRect(0, 0, width, height);
+            
+            nodos = [];
+            estadoInstalacion = 0;
+            const bin = nameInput.value.split('').map(c => c.charCodeAt(0).toString(2).padStart(8, '0')).join('');
+            contadorBinario.innerText = `Matriz: ${bin.length} bits`;
+            
+            let cx = width / 2; let cy = height / 2;
+            let escala = 15;
+            const anguloAureo = 137.5 * (Math.PI / 180);
+            
+            for (let i = 0; i < bin.length; i++) {
+                let tipo = parseInt(bin[i]);
+                let radio = escala * Math.sqrt(i);
+                let theta = i * anguloAureo;
+                nodos.push(new Nodo(cx + radio * Math.cos(theta), cy + radio * Math.sin(theta), tipo));
+            }
+        }
+
+        // 4. MOTOR GRÁFICO
+        function dibujar() {
+            ctx.fillStyle = 'rgba(240, 234, 214, 0.05)';
+            ctx.fillRect(0, 0, width, height);
+
+            if (estadoInstalacion === 0 && nodos.length > 0) {
+                ctx.beginPath();
+                ctx.moveTo(nodos[0].x, nodos[0].y);
+                for (let i = 1; i < nodos.length; i++) {
+                    ctx.lineTo(nodos[i].x, nodos[i].y);
+                }
+                ctx.strokeStyle = 'rgba(34, 34, 34, 0.15)';
+                ctx.lineWidth = 1;
+                ctx.stroke();
+            }
+
+            let targetX = manoX > 0 ? manoX : mouseX;
+            let targetY = manoY > 0 ? manoY : mouseY;
+            let interactuando = isPinching || isMouseDown;
+
+            nodos.forEach((a, i) => {
+                if (a === nodoAgarrado) {
+                    a.x += (targetX - a.x) * 0.2;
+                    a.y += (targetY - a.y) * 0.2;
+                    a.vx = 0; a.vy = 0;
+                } else {
+                    a.actualizar();
+                }
+
+                if (interactuando && targetX > 0 && a !== nodoAgarrado) {
+                    let dMouse = Math.hypot(targetX - a.x, targetY - a.y);
+                    if (dMouse < 150) {
+                        a.vx += (targetX - a.x) * 0.005;
+                        a.vy += (targetY - a.y) * 0.005;
+                    }
+                }
+
+                if (estadoInstalacion === 1) {
+                    for (let j = i + 1; j < nodos.length; j++) {
+                        let b = nodos[j];
+                        let dx = b.x - a.x, dy = b.y - a.y;
+                        let d = Math.hypot(dx, dy);
+
+                        if (a.tipo === 0 && b.tipo === 0) {
+                            if (d < 100) {
+                                let distIdeal = 45;
+                                let tension = (d - distIdeal) * 0.005;
+                                if (a !== nodoAgarrado) { a.vx += dx * tension; a.vy += dy * tension; }
+                                if (b !== nodoAgarrado) { b.vx -= dx * tension; b.vy -= dy * tension; }
+                                
+                                ctx.beginPath();
+                                ctx.moveTo(a.x, a.y);
+                                ctx.lineTo(b.x, b.y);
+                                ctx.strokeStyle = `rgba(34, 34, 34, ${0.4 * (1 - d/100)})`;
+                                ctx.lineWidth = 0.8;
+                                ctx.stroke();
+                            }
+                        } else if ((a.tipo === 1 && b.tipo === 0) || (a.tipo === 0 && b.tipo === 1)) {
+                            if (d < 50) {
+                                let fuerza = 0.05;
+                                if (a.tipo === 1) { a.vx += dx * fuerza; a.vy += dy * fuerza; }
+                                if (b.tipo === 1) { b.vx -= dx * fuerza; b.vy -= dy * fuerza; }
+                            }
+                        }
+                    }
+                }
+
+                ctx.beginPath();
+                if (a.tipo === 0) {
+                    ctx.arc(a.x, a.y, a === nodoAgarrado ? 5 : 2, 0, Math.PI * 2);
+                    ctx.fillStyle = '#222222';
+                    ctx.fill();
+                } else {
+                    ctx.arc(a.x, a.y, 3, 0, Math.PI * 2);
+                    ctx.strokeStyle = `rgba(34, 34, 34, 0.4)`;
+                    ctx.lineWidth = 1;
+                    ctx.stroke();
+                }
+            });
+
+            if (targetX > 0) {
+                ctx.beginPath();
+                ctx.arc(targetX, targetY, interactuando ? 12 : 5, 0, Math.PI * 2);
+                ctx.strokeStyle = interactuando ? '#222222' : 'rgba(34, 34, 34, 0.3)';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+            }
+
+            requestAnimationFrame(dibujar);
+        }
+
+        generateBtn.addEventListener('click', generar);
+        generar();
+        dibujar();
+    </script>
+</body>
+</html>

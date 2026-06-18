@@ -3,340 +3,280 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Matriz Binaria - Tejido Sensitivo</title>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+    <title>BINART | El Lenguaje del Cosmos</title>
     <style>
-        body { margin: 0; overflow: hidden; background-color: #F0EAD6; font-family: 'Courier New', Courier, monospace; user-select: none; }
-        .input_video { display: none; } 
+        @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;700&display=swap');
+
+        body { 
+            margin: 0; overflow: hidden; background-color: #050505; color: #F0EAD6; 
+            font-family: 'Space Grotesk', sans-serif; user-select: none;
+            display: flex; align-items: center; justify-content: center; height: 100vh;
+        }
         
-        #ui-wrapper { 
-            position: absolute; top: 30px; left: 30px; z-index: 10;
-            display: flex; align-items: flex-start;
-            transition: transform 0.4s cubic-bezier(0.25, 1, 0.5, 1);
-        }
-        #ui-wrapper.oculto { transform: translateX(calc(-100% - 30px)); }
+        canvas { position: absolute; top: 0; left: 0; z-index: 1; pointer-events: none; }
 
-        #ui-panel { 
-            width: 300px; background: rgba(240, 234, 214, 0.9); 
-            padding: 25px; border: 1px solid #222222; 
-            border-radius: 2px 0 0 2px; box-sizing: border-box;
-            box-shadow: 2px 2px 10px rgba(0,0,0,0.1);
-        }
-        #toggleBtn {
-            background: #222222; color: #F0EAD6; border: 1px solid #222222; border-left: none; 
-            padding: 15px 10px; cursor: pointer; border-radius: 0 4px 4px 0; font-size: 16px; 
-            display: flex; align-items: center; justify-content: center;
-        }
-        #toggleBtn:hover { opacity: 0.8; }
+        #inicio-container { position: relative; z-index: 10; text-align: center; }
 
-        h3 { font-size: 14px; text-transform: uppercase; border-bottom: 1px solid #222; padding-bottom: 10px; margin-top: 0;}
+        #presentacion-container {
+            position: relative; z-index: 10; width: 85%; max-width: 900px;
+            background: rgba(20, 20, 20, 0.6); border: 1px solid rgba(240, 234, 214, 0.15);
+            padding: 60px; border-radius: 16px; backdrop-filter: blur(12px);
+            box-shadow: 0 20px 60px rgba(0,0,0,0.8);
+            text-align: center; display: none;
+        }
+
+        .slide { display: none; animation: floatIn 1s ease-out; }
+        .slide.active { display: block; }
+
+        @keyframes floatIn { 
+            from { opacity: 0; transform: translateY(20px); } 
+            to { opacity: 1; transform: translateY(0); } 
+        }
+
+        h1 { font-size: 3.5rem; margin: 0 0 10px 0; font-weight: 700; letter-spacing: 6px; text-transform: uppercase; text-shadow: 0 0 20px rgba(240, 234, 214, 0.3); }
+        h2 { font-size: 2.2rem; margin: 0 0 25px 0; letter-spacing: 2px; font-weight: 400; color: #fff; }
+        p { font-size: 1.3rem; line-height: 1.8; color: rgba(240, 234, 214, 0.8); margin-bottom: 40px; font-weight: 300; }
+        
         input[type="text"] { 
-            width: 100%; background: transparent; border: none; border-bottom: 1px solid #222; 
-            color: #222; padding: 5px 0; margin-top: 5px; font-family: inherit; font-size: 16px; box-sizing: border-box; outline: none;
+            background: rgba(0,0,0,0.5); border: 1px solid rgba(240, 234, 214, 0.3); 
+            color: #F0EAD6; padding: 18px 30px; font-size: 1.5rem; text-align: center; 
+            width: 350px; border-radius: 50px; font-family: 'Space Grotesk', sans-serif; 
+            outline: none; transition: 0.4s; letter-spacing: 2px;
         }
-        .btn-accion { 
-            width: 100%; padding: 12px; margin-top: 25px; 
-            background: #222222; color: #F0EAD6; border: none; 
-            cursor: pointer; text-transform: uppercase; font-size: 12px; font-weight: bold;
+        input[type="text"]:focus { width: 450px; border-color: #F0EAD6; }
+        
+        .btn-magico { 
+            background: transparent; color: #F0EAD6; border: 1px solid #F0EAD6; 
+            padding: 16px 45px; font-size: 1.2rem; font-weight: bold; border-radius: 50px;
+            text-transform: uppercase; letter-spacing: 3px; cursor: pointer; 
+            transition: all 0.2s ease; margin-top: 30px; display: inline-block;
         }
-        .status { margin-top: 15px; font-size: 11px; font-weight: bold; color: #222222; }
-        .contador { margin-top: 10px; font-size: 11px; color: #555; }
-        canvas { display: block; position: absolute; top: 0; left: 0; z-index: 1; cursor: crosshair; }
+        .btn-magico:hover { 
+            background: #F0EAD6; color: #050505; box-shadow: 0 0 25px rgba(240, 234, 214, 0.6); 
+        }
+
+        .controles-navegacion {
+            display: flex; justify-content: space-between; align-items: center;
+            margin-top: 40px; border-top: 1px solid rgba(240, 234, 214, 0.1); padding-top: 20px;
+        }
+
+        .btn-flecha {
+            background: transparent; color: #F0EAD6; border: none; font-size: 1.2rem;
+            cursor: pointer; opacity: 0.7; transition: 0.2s; padding: 15px 25px;
+            letter-spacing: 2px; font-family: 'Space Grotesk', sans-serif; text-transform: uppercase;
+            border-radius: 8px;
+        }
+        .btn-flecha:hover { 
+            opacity: 1; text-shadow: 0 0 10px #F0EAD6; transform: scale(1.05); background: rgba(240, 234, 214, 0.1);
+        }
+        .btn-flecha:disabled { opacity: 0.2; cursor: not-allowed; transform: none; background: transparent; }
+
+        .indicador-diapositiva { display: flex; gap: 10px; }
+        .dot { width: 8px; height: 8px; border-radius: 50%; background: rgba(240,234,214,0.2); transition: 0.3s; }
+        .dot.active { background: #F0EAD6; box-shadow: 0 0 10px #F0EAD6; }
+
+        .tutorial-gesto { font-size: 0.85rem; color: #5cb85c; margin-top: 15px; letter-spacing: 1px; }
     </style>
 </head>
 <body>
 
-    <video class="input_video" autoplay playsinline></video>
-    <canvas id="lienzo"></canvas>
+    <canvas id="universoBg"></canvas>
 
-    <div id="ui-wrapper">
-        <div id="ui-panel">
-            <h3>Tejido Sensitivo</h3>
-            
-            <label style="font-size: 11px; font-weight: bold;">ID DEL ESPECTADOR:</label>
-            <input type="text" id="nameInput" value="Sensible">
-            
-            <div id="contadorBinario" class="contador">Matriz: 0 bits</div>
+    <div id="inicio-container">
+        <h1>BINART</h1>
+        <p style="font-size: 1.1rem; max-width: 600px; margin: 0 auto 40px auto;">El cosmos habla en matemáticas. Tu identidad es la semilla.</p>
+        <input type="text" id="nombreInput" placeholder="ID MATRIZ..." autocomplete="off"><br>
+        <button id="btnConectar" class="btn-magico" onclick="conectarUniverso()">Cruzar el Umbral</button>
+    </div>
 
-            <button id="generateBtn" class="btn-accion">Invocación Áurea</button>
-            <div id="cameraStatus" class="status">Calibrando Gestos...</div>
-            
-            <p style="font-size: 10px; opacity: 0.8; margin-top: 20px;">
-                * La matriz áurea es una tela elástica.<br>
-                * Junta índice y pulgar para agarrarla y esculpir.<br>
-                * Al soltar, la geometría encuentra su propio equilibrio sin colapsar.
-            </p>
+    <div id="presentacion-container">
+        
+        <div id="slide0" class="slide active">
+            <h2>¿Qué es el Arte?</h2>
+            <p>Para Platón, el arte es la imitación de la realidad. Sostenía que el arte aleja al ser humano de la verdad, ya que copia el mundo físico, que a su vez es solo una copia imperfecta del mundo eterno de las Ideas.</p>
         </div>
-        <button id="toggleBtn" title="Ocultar Menú">◀</button>
+
+        <div id="slide1" class="slide">
+            <h2>Lo Binario</h2>
+            <p>1 y 0. Luz y Oscuridad. Presencia y Vacío. <br>El universo está escrito en lenguaje matemático", lo que significa que todas las leyes de la física, la astronomía y la naturaleza operan bajo patrones y fórmulas exactas.</p>
+        </div>
+
+        <div id="slide2" class="slide">
+            <h2>La Firma de Fibonacci</h2>
+            <p>El universo no es aleatorio. Utiliza una secuensia numérica para optimizar la vida y la energía. Desde la formación de un embrión hasta los brazos de una galaxia, todo obedece a esta espiral perfecta.</p>
+        </div>
+
+        <div id="slide3" class="slide">
+            <h2>¿Cómo nos ve el Universo?</h2>
+            <p>Para la inmensidad universal, somos un conjunto de datos vibrando en el espacio-tiempo. <br><br>Hemos convertido la identidad en código genético binario.</p>
+            <button id="btnTransmutar" class="btn-magico" onclick="transmutar()">Forjar</button>
+        </div>
+
+        <div class="controles-navegacion">
+            <button class="btn-flecha" id="btnAtras" onclick="cambiarSlide(-1)" disabled>&#10094; Anterior</button>
+            
+            <div class="indicador-diapositiva" id="dots">
+                <div class="dot active"></div>
+                <div class="dot"></div>
+                <div class="dot"></div>
+                <div class="dot"></div>
+            </div>
+
+            <button class="btn-flecha" id="btnAdelante" onclick="cambiarSlide(1)">Siguiente &#10095;</button>
+        </div>
+        
+        <div class="tutorial-gesto">Usa las flechas (◀ ▶), la barra espaciadora o el ratón para navegar</div>
     </div>
 
     <script>
-        const videoElement = document.getElementsByClassName('input_video')[0];
-        const canvas = document.getElementById('lienzo');
-        const ctx = canvas.getContext('2d');
-        const nameInput = document.getElementById('nameInput');
-        const generateBtn = document.getElementById('generateBtn');
-        const cameraStatus = document.getElementById('cameraStatus');
-        const contadorBinario = document.getElementById('contadorBinario');
-        const toggleBtn = document.getElementById('toggleBtn');
-        const uiWrapper = document.getElementById('ui-wrapper');
-
-        let width, height;
-        let nodos = [];
-        let estadoInstalacion = 0; // 0: Estático Áureo, 1: Libre Escultura
-
-        let manoX = -1000, manoY = -1000;
-        let isPinching = false;
-        let mouseX = -1000, mouseY = -1000;
-        let isMouseDown = false;
-        let nodoAgarrado = null;
-
-        function resize() {
-            width = canvas.width = window.innerWidth;
-            height = canvas.height = window.innerHeight;
-            ctx.fillStyle = '#F0EAD6';
-            ctx.fillRect(0, 0, width, height);
-        }
-        window.addEventListener('resize', resize);
-        resize();
-
-        toggleBtn.addEventListener('click', () => {
-            uiWrapper.classList.toggle('oculto');
-            toggleBtn.innerHTML = uiWrapper.classList.contains('oculto') ? '▶' : '◀';
-        });
-
         // ==========================================
-        // 1. MOTOR IA (MediaPipe)
+        // 1. MOTOR DE AUDIO AMBIENTAL (Acorde Suave)
         // ==========================================
-        const hands = new Hands({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`});
-        hands.setOptions({ maxNumHands: 1, modelComplexity: 1, minDetectionConfidence: 0.7, minTrackingConfidence: 0.7 });
-
-        hands.onResults((results) => {
-            if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
-                const landmarks = results.multiHandLandmarks[0];
-                const indice = landmarks[8]; const pulgar = landmarks[4];
-                
-                manoX = (1 - indice.x) * width; manoY = indice.y * height;
-                
-                if (Math.hypot(indice.x - pulgar.x, indice.y - pulgar.y) < 0.06) { 
-                    if (!isPinching) {
-                        isPinching = true;
-                        estadoInstalacion = 1; // Permite a la matriz fluir
-                        intentarAgarrarNodo(manoX, manoY);
-                    }
-                } else { 
-                    isPinching = false;
-                    if(nodoAgarrado && !nodoAgarrado.agarreManual) nodoAgarrado = null;
-                }
-            } else {
-                manoX = -1000; manoY = -1000; isPinching = false;
-                if(nodoAgarrado && !nodoAgarrado.agarreManual) nodoAgarrado = null;
-            }
-        });
-
-        const camera = new Camera(videoElement, {
-            onFrame: async () => {
-                cameraStatus.innerText = "Cámara y Gestos: ACTIVOS";
-                cameraStatus.style.color = "#5cb85c";
-                await hands.send({image: videoElement}); 
-            },
-            width: 640, height: 480
-        });
-        camera.start();
-
-        // Control Mouse
-        function down(e) {
-            mouseX = e.touches ? e.touches[0].clientX : e.clientX; 
-            mouseY = e.touches ? e.touches[0].clientY : e.clientY;
-            isMouseDown = true; estadoInstalacion = 1; 
-            intentarAgarrarNodo(mouseX, mouseY, true);
-        }
-        function up() { isMouseDown = false; if(nodoAgarrado) nodoAgarrado.agarreManual = false; nodoAgarrado = null; }
-        function move(e) { if(isMouseDown) { mouseX = e.touches ? e.touches[0].clientX : e.clientX; mouseY = e.touches ? e.touches[0].clientY : e.clientY; } }
+        let audioCtx, masterGain;
         
-        window.addEventListener('mousedown', down); window.addEventListener('mouseup', up); window.addEventListener('mousemove', move);
-        window.addEventListener('touchstart', down, {passive: false}); window.addEventListener('touchend', up); window.addEventListener('touchmove', move, {passive: false});
+        function iniciarAudioCosmico() {
+            if (audioCtx) return;
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            masterGain = audioCtx.createGain();
+            masterGain.gain.value = 0.15; 
+            masterGain.connect(audioCtx.destination);
 
-        // ==========================================
-        // 2. FÍSICAS DE ESTABILIDAD
-        // ==========================================
-        class Nodo {
-            constructor(x, y, tipo) {
-                this.x = x; this.y = y; this.tipo = tipo;
-                this.vx = 0; this.vy = 0; 
-                this.agarreManual = false;
-                // Flote ligero para los Yang
-                this.inerciaX = (Math.random() - 0.5) * 0.4;
-                this.inerciaY = (Math.random() - 0.5) * 0.4;
-            }
-
-            actualizar() {
-                if (estadoInstalacion === 0) return;
-
-                this.x += this.vx; this.y += this.vy;
-
-                if (this.x < 0) { this.x = 0; this.vx *= -1; }
-                if (this.x > width) { this.x = width; this.vx *= -1; }
-                if (this.y < 0) { this.y = 0; this.vy *= -1; }
-                if (this.y > height) { this.y = height; this.vy *= -1; }
-
-                // FRICCIÓN TOPOLÓGICA (El secreto de la calma)
-                // 0.85 detiene el movimiento rápido, permitiendo reposo visual.
-                this.vx *= 0.85; 
-                this.vy *= 0.85; 
-
-                // Flote suave constante para Yang
-                if (this.tipo === 1) {
-                    this.vx += this.inerciaX;
-                    this.vy += this.inerciaY;
-                }
-            }
-        }
-
-        function intentarAgarrarNodo(x, y, esMouse = false) {
-            let minDist = 100; nodoAgarrado = null;
-            nodos.forEach(n => {
-                let d = Math.hypot(x - n.x, y - n.y);
-                if (d < minDist) { minDist = d; nodoAgarrado = n; if(esMouse) n.agarreManual = true; }
+            const frecuencias = [130.81, 196.00, 293.66]; // Do Sus2 suave
+            
+            frecuencias.forEach(freq => {
+                let osc = audioCtx.createOscillator();
+                let oscGain = audioCtx.createGain();
+                osc.type = 'sine'; 
+                osc.frequency.value = freq;
+                
+                let lfo = audioCtx.createOscillator();
+                lfo.type = 'sine';
+                lfo.frequency.value = 0.1 + (Math.random() * 0.05); 
+                
+                let lfoGain = audioCtx.createGain();
+                lfoGain.gain.value = 0.3; 
+                
+                lfo.connect(lfoGain);
+                lfoGain.connect(oscGain.gain);
+                
+                oscGain.gain.value = 0.4;
+                osc.connect(oscGain);
+                oscGain.connect(masterGain);
+                
+                osc.start();
+                lfo.start();
             });
         }
 
         // ==========================================
-        // 3. NACIMIENTO: FILOTAXIA ÁUREA
+        // 2. NAVEGACIÓN
         // ==========================================
-        function generar() {
-            ctx.fillStyle = '#F0EAD6'; 
-            ctx.fillRect(0, 0, width, height);
-            
-            nodos = [];
-            estadoInstalacion = 0; 
+        let slideActual = 0;
+        const totalSlides = 4;
+        let enPresentacion = false;
 
-            const bin = nameInput.value.split('').map(c => c.charCodeAt(0).toString(2).padStart(8, '0')).join('');
-            contadorBinario.innerText = `Matriz: ${bin.length} bits en pantalla`;
+        function conectarUniverso() {
+            const nombre = document.getElementById('nombreInput').value.trim();
+            if (!nombre) return alert("El cosmos necesita tu ID matriz para continuar.");
             
-            let cx = width / 2; let cy = height / 2;
-            let escala = 15; 
-            const anguloAureo = 137.5 * (Math.PI / 180);
+            localStorage.setItem('binart_user', nombre);
+            
+            document.getElementById('inicio-container').style.display = 'none';
+            document.getElementById('presentacion-container').style.display = 'block';
+            
+            enPresentacion = true;
+            iniciarAudioCosmico();
+        }
 
-            for (let i = 0; i < bin.length; i++) {
-                let tipo = parseInt(bin[i]);
-                let radio = escala * Math.sqrt(i);
-                let theta = i * anguloAureo;
-                nodos.push(new Nodo(cx + radio * Math.cos(theta), cy + radio * Math.sin(theta), tipo));
+        // Escuchar teclado para navegar
+        window.addEventListener('keydown', (e) => {
+            if (!enPresentacion) return;
+            
+            // Si el foco no está en un input y se presiona espacio, o si se presiona la flecha derecha
+            if ((e.code === 'Space' && document.activeElement.tagName !== 'INPUT') || e.key === 'ArrowRight') {
+                e.preventDefault(); // Evitar scroll
+                if(slideActual < totalSlides - 1) cambiarSlide(1);
+            } 
+            // Si se presiona la flecha izquierda
+            else if (e.key === 'ArrowLeft') {
+                e.preventDefault();
+                if(slideActual > 0) cambiarSlide(-1);
             }
+        });
+
+        // Permitir enter en el input para conectar rápidamente
+        document.getElementById('nombreInput').addEventListener('keypress', function (e) {
+            if (e.key === 'Enter') {
+                conectarUniverso();
+            }
+        });
+
+        function cambiarSlide(direccion) {
+            let nuevaSlide = slideActual + direccion;
+            if (nuevaSlide < 0 || nuevaSlide >= totalSlides) return;
+
+            document.getElementById('slide' + slideActual).classList.remove('active');
+            document.querySelectorAll('.dot')[slideActual].classList.remove('active');
+
+            slideActual = nuevaSlide;
+
+            document.getElementById('slide' + slideActual).classList.add('active');
+            document.querySelectorAll('.dot')[slideActual].classList.add('active');
+
+            document.getElementById('btnAtras').disabled = (slideActual === 0);
+            document.getElementById('btnAdelante').disabled = (slideActual === totalSlides - 1);
+        }
+
+        function transmutar() {
+            document.body.style.opacity = '0';
+            document.body.style.transition = 'opacity 2s ease';
+            
+            const archivosArte = ['binart.html', 'codigobueno.html', 'esculturaaurea.html', 'galaxia.html', 'galaxia2manos.html'];
+            const seleccionado = archivosArte[Math.floor(Math.random() * archivosArte.length)];
+            
+            setTimeout(() => window.location.href = seleccionado, 2000);
         }
 
         // ==========================================
-        // 4. MOTOR GRÁFICO 
+        // 3. FONDO ESTELAR (Sin IA)
         // ==========================================
-        function dibujar() {
-            // Veladura super transparente para trazar una memoria elegante sin manchar
-            ctx.fillStyle = 'rgba(240, 234, 214, 0.05)'; 
+        const canvas = document.getElementById('universoBg');
+        const ctx = canvas.getContext('2d');
+        let width, height;
+        let estrellas = [];
+
+        function resize() { width = canvas.width = window.innerWidth; height = canvas.height = window.innerHeight; }
+        window.addEventListener('resize', resize); resize();
+
+        class Astro {
+            constructor() {
+                this.x = Math.random() * width; this.y = Math.random() * height;
+                this.z = Math.random() * 2 + 0.1; 
+                this.baseOpacity = Math.random() * 0.5 + 0.1;
+            }
+            update() {
+                this.x += (0.2 / this.z); this.y -= (0.1 / this.z);
+                if (this.x > width) this.x = 0;
+                if (this.y < 0) this.y = height;
+            }
+            draw() {
+                let radio = 2 / this.z;
+                ctx.beginPath(); ctx.arc(this.x, this.y, radio, 0, Math.PI * 2);
+                ctx.fillStyle = `rgba(240, 234, 214, ${this.baseOpacity})`; ctx.fill();
+            }
+        }
+        
+        for(let i=0; i<150; i++) estrellas.push(new Astro());
+
+        function animarCosmos() {
+            ctx.fillStyle = 'rgba(5, 5, 5, 0.4)'; 
             ctx.fillRect(0, 0, width, height);
 
-            // DIBUJO DE LA ESPIRAL INICIAL
-            if (estadoInstalacion === 0 && nodos.length > 0) {
-                ctx.beginPath();
-                ctx.moveTo(nodos[0].x, nodos[0].y);
-                for (let i = 1; i < nodos.length; i++) {
-                    ctx.lineTo(nodos[i].x, nodos[i].y);
-                }
-                ctx.strokeStyle = 'rgba(34, 34, 34, 0.15)'; 
-                ctx.lineWidth = 1;
-                ctx.stroke();
-            }
+            estrellas.forEach(e => { e.update(); e.draw(); });
 
-            let targetX = manoX > 0 ? manoX : mouseX;
-            let targetY = manoY > 0 ? manoY : mouseY;
-            let interactuando = isPinching || isMouseDown;
-
-            nodos.forEach((a, i) => {
-                // Interacción Directa
-                if (a === nodoAgarrado) {
-                    a.x += (targetX - a.x) * 0.2; 
-                    a.y += (targetY - a.y) * 0.2;
-                    a.vx = 0; a.vy = 0;
-                } else {
-                    a.actualizar();
-                }
-
-                // ATRACCIÓN DEL TEJIDO
-                // Si el espectador pellizca, crea una zona de gravedad muy suave
-                if (interactuando && targetX > 0 && a !== nodoAgarrado) {
-                    let dMouse = Math.hypot(targetX - a.x, targetY - a.y);
-                    if (dMouse < 150) {
-                        a.vx += (targetX - a.x) * 0.005;
-                        a.vy += (targetY - a.y) * 0.005;
-                    }
-                }
-
-                if (estadoInstalacion === 1) {
-                    for (let j = i + 1; j < nodos.length; j++) {
-                        let b = nodos[j];
-                        let dx = b.x - a.x, dy = b.y - a.y;
-                        let d = Math.hypot(dx, dy);
-
-                        // GEOMETRÍA: Yin (0) se conectan
-                        if (a.tipo === 0 && b.tipo === 0) {
-                            if (d < 100) {
-                                // Resorte perfecto: Buscan una distancia de 45px
-                                let distIdeal = 45;
-                                let tension = (d - distIdeal) * 0.005;
-                                if (a !== nodoAgarrado) { a.vx += dx * tension; a.vy += dy * tension; }
-                                if (b !== nodoAgarrado) { b.vx -= dx * tension; b.vy -= dy * tension; }
-
-                                // Líneas de construcción
-                                ctx.beginPath();
-                                ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y);
-                                ctx.strokeStyle = `rgba(34, 34, 34, ${0.4 * (1 - d/100)})`;
-                                ctx.lineWidth = 0.8;
-                                ctx.stroke();
-                            }
-                        } 
-                        // REPULSIÓN: Yang (1) huye de la malla de Yin (0)
-                        else if ((a.tipo === 1 && b.tipo === 0) || (a.tipo === 0 && b.tipo === 1)) {
-                            if (d < 50) {
-                                let fuerza = 0.05;
-                                if (a.tipo === 1) { a.vx += dx * fuerza; a.vy += dy * fuerza; }
-                                if (b.tipo === 1) { b.vx -= dx * fuerza; b.vy -= dy * fuerza; }
-                            }
-                        }
-                    }
-                }
-
-                // DIBUJO DE NODOS
-                ctx.beginPath();
-                if (a.tipo === 0) {
-                    // Yin (Nodos Sólidos de la red)
-                    ctx.arc(a.x, a.y, a === nodoAgarrado ? 5 : 2, 0, Math.PI * 2);
-                    ctx.fillStyle = '#222222';
-                    ctx.fill();
-                } else {
-                    // Yang (Flotantes)
-                    ctx.arc(a.x, a.y, 3, 0, Math.PI * 2);
-                    ctx.strokeStyle = `rgba(34, 34, 34, 0.4)`;
-                    ctx.lineWidth = 1;
-                    ctx.stroke();
-                }
-            });
-
-            // PUNTERO GESTUAL
-            if (targetX > 0) {
-                ctx.beginPath();
-                ctx.arc(targetX, targetY, interactuando ? 12 : 5, 0, Math.PI * 2);
-                ctx.strokeStyle = interactuando ? '#222222' : 'rgba(34, 34, 34, 0.3)';
-                ctx.lineWidth = 2;
-                ctx.stroke();
-            }
-
-            requestAnimationFrame(dibujar);
+            requestAnimationFrame(animarCosmos);
         }
-
-        generateBtn.addEventListener('click', generar);
-        generar();
-        dibujar();
+        animarCosmos();
     </script>
 </body>
 </html>

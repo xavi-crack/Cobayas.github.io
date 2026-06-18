@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Galaxia Binaria Áurea</title>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #222222; color: #F0EAD6; font-family: monospace; user-select: none; }
+        .input_video { display: none; } 
+        
+        /* Contenedor Retráctil del Menú */
+        #ui-wrapper { 
+            position: absolute; top: 20px; left: 20px; z-index: 10; 
+            display: flex; align-items: flex-start; 
+            transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1); 
+        }
+        
+        /* Oculta los 300px del panel + los 20px de margen izquierdo */
+        #ui-wrapper.oculto { 
+            transform: translateX(-320px); 
+        }
+        
+        #panel { 
+            width: 300px; background: rgba(34, 34, 34, 0.85); padding: 20px; 
+            border: 1px solid #F0EAD6; border-right: none; box-sizing: border-box; 
+            backdrop-filter: blur(4px); box-shadow: 2px 2px 15px rgba(0,0,0,0.5);
+        }
+        
+        /* Pestaña para ocultar/mostrar */
+        #toggleBtn { 
+            background: rgba(34, 34, 34, 0.85); color: #F0EAD6; border: 1px solid #F0EAD6; 
+            border-left: none; padding: 15px 10px; cursor: pointer; width: 35px;
+            font-size: 16px; display: flex; align-items: center; justify-content: center; 
+            transition: background 0.3s, color 0.3s; height: 50px;
+        }
+        #toggleBtn:hover { background: #F0EAD6; color: #222222; }
+        
+        h3 { margin: 0 0 15px 0; border-bottom: 1px solid #F0EAD6; padding-bottom: 10px; letter-spacing: 2px; text-transform: uppercase; }
+        label { font-size: 11px; display: block; margin-top: 15px; font-weight: bold; }
+        
+        input[type="text"] { 
+            width: 100%; background: #222; border: 1px solid #F0EAD6; 
+            color: #F0EAD6; padding: 8px; margin-top: 5px; box-sizing: border-box; font-family: monospace; outline: none;
+        }
+        
+        .btn-accion { 
+            width: 100%; padding: 10px; margin-top: 20px; 
+            background: #F0EAD6; color: #222; border: none; 
+            cursor: pointer; font-weight: bold; text-transform: uppercase; letter-spacing: 1px;
+            transition: background 0.3s ease;
+        }
+        .btn-accion:hover { background: #ffffff; }
+
+        /* Botones de Navegación */
+        .btn-nav-group { display: flex; gap: 10px; margin-top: 15px; }
+        .btn-nav { 
+            flex: 1; padding: 10px; background: transparent; color: #F0EAD6; 
+            border: 1px solid #F0EAD6; cursor: pointer; font-family: monospace;
+            font-size: 10px; text-transform: uppercase; font-weight: bold; transition: all 0.3s;
+        }
+        .btn-nav:hover { background: rgba(240, 234, 214, 0.2); }
+        
+        .status { margin-top: 15px; font-size: 11px; font-weight: bold; color: #5cb85c; }
+        .info { font-size: 10px; opacity: 0.7; margin-top: 15px; line-height: 1.5; }
+        canvas { display: block; cursor: crosshair; position: absolute; top: 0; left: 0; z-index: 1; }
+    </style>
+</head>
+<body>
+
+    <video class="input_video" autoplay playsinline></video>
+    <canvas id="lienzo"></canvas>
+
+    <div id="ui-wrapper">
+        <div id="panel">
+            <h3>Cosmología Binaria</h3>
+            
+            <label>ID DEL ESPECTADOR:</label>
+            <input type="text" id="inputNombre" value="Arte" autocomplete="off">
+            
+            <button id="btnGenerar" class="btn-accion">Transmutar Galaxia</button>
+            
+            <div class="btn-nav-group">
+                <button id="btnInicio" class="btn-nav">◄ Inicio</button>
+                <button id="btnAbstraccion" class="btn-nav">Abstracción ►</button>
+            </div>
+            
+            <div id="cameraStatus" class="status">Iniciando Sensor Gestual...</div>
+            
+            <div class="info">
+                <b>Morfología Áurea 3D:</b><br>
+                [0] Yin: Semilla del Núcleo Esférico.<br>
+                [1] Yang: Semilla del Disco Orbital.<br><br>
+                <b>Interacción:</b><br>
+                La galaxia rota pacíficamente. Junta el pulgar y el índice para crear una anomalía gravitacional que deforme el espacio-tiempo.
+            </div>
+        </div>
+        <button id="toggleBtn" title="Ocultar Menú">◀</button>
+    </div>
+
+    <script>
+        // ==========================================
+        // SÍNTESIS SONORA INTERESTELAR
+        // ==========================================
+        let audioCtx, masterGain, audioIniciado = false;
+        
+        function iniciarAudio() {
+            if (audioIniciado) return;
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            masterGain = audioCtx.createGain();
+            masterGain.gain.value = 0.15; // Volumen contemplativo
+            masterGain.connect(audioCtx.destination);
+
+            // Acorde Dmaj7 (Re Mayor con Séptima Mayor) para atmósfera flotante
+            const frecuencias = [146.83, 185.00, 220.00, 277.18]; 
+            
+            frecuencias.forEach(freq => {
+                let osc = audioCtx.createOscillator();
+                osc.type = 'sine'; // Onda pura
+                osc.frequency.value = freq;
+                
+                let oscGain = audioCtx.createGain();
+                oscGain.gain.value = 0.25;
+                
+                // LFO para el titilar estelar
+                let lfo = audioCtx.createOscillator();
+                lfo.type = 'sine';
+                lfo.frequency.value = 0.05 + (Math.random() * 0.08); 
+                
+                let lfoGain = audioCtx.createGain();
+                lfoGain.gain.value = 0.2; 
+                
+                lfo.connect(lfoGain);
+                lfoGain.connect(oscGain.gain);
+                
+                osc.connect(oscGain);
+                oscGain.connect(masterGain);
+                
+                osc.start();
+                lfo.start();
+            });
+            audioIniciado = true;
+        }
+
+        // El sonido se activa al hacer el primer clic en la ventana
+        document.body.addEventListener('click', iniciarAudio, { once: true });
+
+        // ==========================================
+        // UI & NAVEGACIÓN
+        // ==========================================
+        const toggleBtn = document.getElementById('toggleBtn');
+        const uiWrapper = document.getElementById('ui-wrapper');
+        
+        toggleBtn.addEventListener('click', () => {
+            uiWrapper.classList.toggle('oculto');
+            toggleBtn.innerHTML = uiWrapper.classList.contains('oculto') ? '▶' : '◀';
+        });
+
+        document.getElementById('btnInicio').addEventListener('click', () => {
+            window.location.href = 'index.html';
+        });
+
+        document.getElementById('btnAbstraccion').addEventListener('click', () => {
+            const abstracciones = ['esculturaaurea.html', 'galaxia2manos.html', 'codigobueno.html', 'binart.html'];
+            const destino = abstracciones[Math.floor(Math.random() * abstracciones.length)];
+            window.location.href = destino;
+        });
+
+        const inputNombre = document.getElementById('inputNombre');
+        const nombreGuardado = localStorage.getItem('binart_user');
+        if (nombreGuardado) inputNombre.value = nombreGuardado;
+
+        // ==========================================
+        // LÓGICA PRINCIPAL (Cámara y 3D)
+        // ==========================================
+        const videoElement = document.getElementsByClassName('input_video')[0];
+        const canvas = document.getElementById('lienzo');
+        const ctx = canvas.getContext('2d');
+        const btnGenerar = document.getElementById('btnGenerar');
+        const cameraStatus = document.getElementById('cameraStatus');
+
+        let width, height;
+        let particulas = [];
+        
+        let manoX = -1000, manoY = -1000;
+        let isPinching = false;
+        let mouseX = -1000, mouseY = -1000;
+        let isMouseDown = false;
+
+        const focalLength = 400; 
+        const cameraZ = 600; 
+        let galaxiaRotationY = 0;
+        let galaxiaRotationX = 0.3; 
+
+        function resize() {
+            width = canvas.width = window.innerWidth;
+            height = canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        // 1. MOTOR IA (MediaPipe)
+        const hands = new Hands({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`});
+        hands.setOptions({ maxNumHands: 1, modelComplexity: 1, minDetectionConfidence: 0.7, minTrackingConfidence: 0.7 });
+
+        hands.onResults((results) => {
+            if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+                const landmarks = results.multiHandLandmarks[0];
+                const indice = landmarks[8]; const pulgar = landmarks[4];
+                
+                manoX = (1 - indice.x) * width; 
+                manoY = indice.y * height;
+                
+                let distDedos = Math.hypot(indice.x - pulgar.x, indice.y - pulgar.y);
+                isPinching = distDedos < 0.06;
+            } else {
+                manoX = -1000; manoY = -1000; isPinching = false;
+            }
+        });
+
+        const camera = new Camera(videoElement, {
+            onFrame: async () => {
+                cameraStatus.innerText = "Navegación Óptica: ACTIVA";
+                cameraStatus.style.color = "#5cb85c";
+                await hands.send({image: videoElement}); 
+            },
+            width: 640, height: 480
+        });
+        camera.start();
+
+        // Respaldo Táctil
+        window.addEventListener('mousedown', (e) => { 
+            if(e.target.closest('#ui-wrapper')) return; // Prevenir arrastre si se hace clic en la UI
+            isMouseDown = true; mouseX = e.clientX; mouseY = e.clientY; 
+        });
+        window.addEventListener('mouseup', () => isMouseDown = false);
+        window.addEventListener('mousemove', (e) => { mouseX = e.clientX; mouseY = e.clientY; });
+
+        // 2. PARTÍCULAS TRIDIMENSIONALES
+        class Particula3D {
+            constructor(x, y, z, tipo) {
+                this.baseX = x; 
+                this.baseY = y; 
+                this.baseZ = z;
+                
+                this.x = x; 
+                this.y = y; 
+                this.z = z;
+                
+                this.vx = 0; this.vy = 0; this.vz = 0;
+                this.tipo = tipo; 
+                this.brilloBase = Math.random() * 0.5 + 0.5; 
+            }
+
+            actualizar(targetX, targetY, isInteractuando) {
+                let forceX = (this.baseX - this.x) * 0.05;
+                let forceY = (this.baseY - this.y) * 0.05;
+                let forceZ = (this.baseZ - this.z) * 0.05;
+
+                if (isInteractuando && targetX > 0) {
+                    let cx = width / 2; let cy = height / 2;
+                    let scale = focalLength / (focalLength + this.z + cameraZ);
+                    let screenX = cx + this.x * scale;
+                    let screenY = cy + this.y * scale;
+
+                    let dx = targetX - screenX;
+                    let dy = targetY - screenY;
+                    let d = Math.hypot(dx, dy);
+
+                    if (d < 250) {
+                        forceX -= (dx / d) * 15;
+                        forceY -= (dy / d) * 15;
+                        forceZ -= 10; 
+                    }
+                }
+
+                this.vx += forceX; this.vy += forceY; this.vz += forceZ;
+                this.vx *= 0.85; this.vy *= 0.85; this.vz *= 0.85;
+                this.x += this.vx; this.y += this.vy; this.z += this.vz;
+            }
+        }
+
+        // 3. GENERACIÓN: ESFERA DE FIBONACCI
+        function generarMatriz() {
+            iniciarAudio();
+            localStorage.setItem('binart_user', inputNombre.value);
+
+            particulas = [];
+            let nombre = inputNombre.value || "Arte";
+            const bin = nombre.split('').map(c => c.charCodeAt(0).toString(2).padStart(8, '0')).join('');
+            
+            const densidadPorBit = 60; 
+            const radioEsfera = 180;
+            const radioDiscoInt = 220;
+            const radioDiscoExt = 450;
+            const anguloAureo = Math.PI * (3 - Math.sqrt(5)); 
+
+            for (let i = 0; i < bin.length; i++) {
+                let bit = parseInt(bin[i]);
+                
+                for (let j = 0; j < densidadPorBit; j++) {
+                    let indiceEstrella = i * densidadPorBit + j;
+                    
+                    if (bit === 0) {
+                        let totalEsfera = bin.length * densidadPorBit;
+                        let y = 1 - (indiceEstrella / (totalEsfera - 1)) * 2; 
+                        let r = Math.sqrt(1 - y * y);
+                        let theta = anguloAureo * indiceEstrella;
+                        
+                        let grosor = radioEsfera * (0.8 + Math.random() * 0.4); 
+
+                        let x = Math.cos(theta) * r * grosor;
+                        let z = Math.sin(theta) * r * grosor;
+                        let finalY = y * grosor;
+                        
+                        particulas.push(new Particula3D(x, finalY, z, 0));
+                    } 
+                    else {
+                        let theta = anguloAureo * indiceEstrella;
+                        let distanciaRadio = radioDiscoInt + Math.pow(Math.random(), 2) * (radioDiscoExt - radioDiscoInt);
+                        
+                        let x = Math.cos(theta) * distanciaRadio;
+                        let z = Math.sin(theta) * distanciaRadio;
+                        let y = (Math.random() - 0.5) * 30; 
+                        
+                        particulas.push(new Particula3D(x, y, z, 1));
+                    }
+                }
+            }
+        }
+
+        // 4. MOTOR DE RENDERIZADO 3D Y FÍSICAS
+        function dibujar() {
+            ctx.fillStyle = '#222222';
+            ctx.fillRect(0, 0, width, height);
+
+            let interactuando = isPinching || isMouseDown;
+            let targetX = manoX > 0 ? manoX : mouseX;
+            let targetY = manoY > 0 ? manoY : mouseY;
+
+            let velocidadRotacion = interactuando ? 0.02 : 0.003; 
+            galaxiaRotationY += velocidadRotacion;
+
+            let cx = width / 2;
+            let cy = height / 2;
+            let particulasRotadas = [];
+
+            for (let i = 0; i < particulas.length; i++) {
+                let p = particulas[i];
+                p.actualizar(targetX, targetY, interactuando);
+
+                let rx = p.x * Math.cos(galaxiaRotationY) - p.z * Math.sin(galaxiaRotationY);
+                let rz = p.z * Math.cos(galaxiaRotationY) + p.x * Math.sin(galaxiaRotationY);
+                let ry = p.y;
+
+                let finalY = ry * Math.cos(galaxiaRotationX) - rz * Math.sin(galaxiaRotationX);
+                let finalZ = rz * Math.cos(galaxiaRotationX) + ry * Math.sin(galaxiaRotationX);
+                let finalX = rx;
+
+                particulasRotadas.push({ p: p, x: finalX, y: finalY, z: finalZ });
+            }
+
+            particulasRotadas.sort((a, b) => b.z - a.z);
+
+            for (let i = 0; i < particulasRotadas.length; i++) {
+                let pr = particulasRotadas[i];
+                let distanciaFocalTotal = focalLength + pr.z + cameraZ;
+                if (distanciaFocalTotal <= 0) continue; 
+
+                let scale = focalLength / distanciaFocalTotal;
+                let screenX = cx + pr.x * scale;
+                let screenY = cy + pr.y * scale;
+
+                let tamañoBase = pr.p.tipo === 0 ? 1.5 : 1.0;
+                let tamañoRender = Math.max(0.1, tamañoBase * scale * 2);
+
+                let alphaZ = Math.min(1, Math.max(0.1, 1 - ((pr.z + 300) / 800)));
+                let opacidad = pr.p.brilloBase * alphaZ;
+
+                ctx.fillStyle = `rgba(240, 234, 214, ${opacidad})`;
+                ctx.fillRect(screenX - tamañoRender/2, screenY - tamañoRender/2, tamañoRender, tamañoRender);
+            }
+
+            if (targetX > 0) {
+                ctx.beginPath();
+                ctx.arc(targetX, targetY, interactuando ? 20 : 8, 0, Math.PI * 2);
+                ctx.strokeStyle = interactuando ? '#F0EAD6' : 'rgba(240, 234, 214, 0.3)';
+                ctx.lineWidth = 1.5;
+                ctx.stroke();
+            }
+
+            requestAnimationFrame(dibujar);
+        }
+
+        btnGenerar.addEventListener('click', generarMatriz);
+        generarMatriz();
+        dibujar();
+    </script>
+</body>
+</html>
